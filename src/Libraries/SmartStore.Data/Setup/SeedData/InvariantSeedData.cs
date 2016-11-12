@@ -56,8 +56,8 @@ namespace SmartStore.Data.Setup
 
 		public IList<Picture> Pictures()
 		{
-			var entities = new List<Picture> 
-			{ 
+			var entities = new List<Picture>
+			{
 				CreatePicture(File.ReadAllBytes(_sampleImagesPath + "company_logo.png"), "image/png", GetSeName("company-logo")),
  				CreatePicture(File.ReadAllBytes(_sampleImagesPath + "clouds.png"), "image/png", GetSeName("slider-bg")),
 				CreatePicture(File.ReadAllBytes(_sampleImagesPath + "iphone.png"), "image/png", GetSeName("slide-1")),
@@ -72,11 +72,11 @@ namespace SmartStore.Data.Setup
 		{
 			var seName = GetSeName("company-logo");
 			var imgCompanyLogo = _ctx.Set<Picture>().Where(x => x.SeoFilename == seName).FirstOrDefault();
-			
+
 			var currency = _ctx.Set<Currency>().FirstOrDefault(x => x.CurrencyCode == "EUR");
 			if (currency == null)
 				currency = _ctx.Set<Currency>().First();
-			
+
 			var entities = new List<Store>()
 			{
 				new Store()
@@ -6138,8 +6138,10 @@ namespace SmartStore.Data.Setup
 				Picture = CreatePicture(File.ReadAllBytes(sampleImagesPath + "emblem_library.png"), "image/jpeg", GetSeName("Books")),
 				Published = true,
 				DisplayOrder = 1,
-				MetaTitle = "Books"
-			};
+				MetaTitle = "Books",
+                CreatedOnUtc = DateTime.UtcNow,
+                UpdatedOnUtc = DateTime.UtcNow
+            };
 
 			var categoryComputers = new Category
 			{
@@ -6152,8 +6154,10 @@ namespace SmartStore.Data.Setup
                 Picture = CreatePicture(File.ReadAllBytes(sampleImagesPath + "category_computers.png"), "image/png", GetSeName("Computers")),
 				Published = true,
 				DisplayOrder = 2,
-				MetaTitle = "Computers"
-			};
+				MetaTitle = "Computers",
+                CreatedOnUtc = DateTime.UtcNow,
+                UpdatedOnUtc = DateTime.UtcNow
+            };
 
 			var categoryGaming = new Category
 			{
@@ -6166,8 +6170,10 @@ namespace SmartStore.Data.Setup
 				Picture = CreatePicture(File.ReadAllBytes(sampleImagesPath + "category_gaming.png"), "image/png", GetSeName("Gaming")),
 				Published = true,
 				DisplayOrder = 3,
-				MetaTitle = "Gaming"
-			};
+				MetaTitle = "Gaming",
+                CreatedOnUtc = DateTime.UtcNow,
+                UpdatedOnUtc = DateTime.UtcNow
+            };
 
 			var categoryCellPhones = new Category
 			{
@@ -6182,8 +6188,10 @@ namespace SmartStore.Data.Setup
                 Picture = CreatePicture(File.ReadAllBytes(sampleImagesPath + "category_cellphone.png"), "image/png", GetSeName("Cell phones")),
 				Published = true,
 				DisplayOrder = 4,
-				MetaTitle = "Cell phones"
-			};
+				MetaTitle = "Cell phones",
+                CreatedOnUtc = DateTime.UtcNow,
+                UpdatedOnUtc = DateTime.UtcNow
+            };
 
 			var categoryDigitalDownloads = new Category
 			{
@@ -6196,8 +6204,10 @@ namespace SmartStore.Data.Setup
                 Picture = CreatePicture(File.ReadAllBytes(sampleImagesPath + "category_digitaldownloads.jpg"), "image/jpeg", GetSeName("Digital downloads")),
 				Published = true,
 				DisplayOrder = 6,
-				MetaTitle = "Instant music"
-			};
+				MetaTitle = "Instant music",
+                CreatedOnUtc = DateTime.UtcNow,
+                UpdatedOnUtc = DateTime.UtcNow
+            };
 
 			var categoryGiftCards = new Category
 			{
@@ -6210,8 +6220,10 @@ namespace SmartStore.Data.Setup
 				Picture = CreatePicture(File.ReadAllBytes(sampleImagesPath + "category_giftcards.png"), "image/png", GetSeName("Gift Cards")),
 				Published = true,
 				DisplayOrder = 12,
-				MetaTitle = "Gift cards"
-			};
+				MetaTitle = "Gift cards",
+                CreatedOnUtc = DateTime.UtcNow,
+                UpdatedOnUtc = DateTime.UtcNow
+            };
 
 			var categoryWatches = new Category
 			{
@@ -6224,10 +6236,13 @@ namespace SmartStore.Data.Setup
                 Picture = CreatePicture(File.ReadAllBytes(sampleImagesPath + "category_watches.png"), "image/png", GetSeName("Watches")),
 				Published = true,
 				DisplayOrder = 10,
-				MetaTitle = "Watches"
-			};
+				MetaTitle = "Watches",
+                CreatedOnUtc = DateTime.UtcNow,
+                UpdatedOnUtc = DateTime.UtcNow
+            };
 
-			#endregion category definitions
+			#endregion category definitions,
+
 
 			var entities = new List<Category>
 			{
@@ -6262,8 +6277,10 @@ namespace SmartStore.Data.Setup
 				Published = true,
 				ParentCategoryId = _ctx.Set<Category>().Where(x => x.MetaTitle == "Books").First().Id,
 				DisplayOrder = 1,
-				MetaTitle = "SPIEGEL-Bestseller"
-			};
+				MetaTitle = "SPIEGEL-Bestseller",
+                CreatedOnUtc = DateTime.UtcNow,
+                UpdatedOnUtc = DateTime.UtcNow
+            };
 
 			var categoryBooksCookAndEnjoy = new Category
 			{
@@ -6277,8 +6294,10 @@ namespace SmartStore.Data.Setup
 				Published = true,
 				ParentCategoryId = _ctx.Set<Category>().Where(x => x.MetaTitle == "Books").First().Id,
 				DisplayOrder = 2,
-				MetaTitle = "Cook and enjoy"
-			};
+				MetaTitle = "Cook and enjoy",
+                CreatedOnUtc = DateTime.UtcNow,
+                UpdatedOnUtc = DateTime.UtcNow
+            };
 
 			var categoryDesktops = new Category
 			{
@@ -6293,8 +6312,10 @@ namespace SmartStore.Data.Setup
 				PriceRanges = "-1000;1000-1200;1200-;",
 				Published = true,
 				DisplayOrder = 1,
-				MetaTitle = "Desktops"
-			};
+				MetaTitle = "Desktops",
+                CreatedOnUtc = DateTime.UtcNow,
+                UpdatedOnUtc = DateTime.UtcNow
+            };
 
 			var categoryNotebooks = new Category
 			{
@@ -6308,8 +6329,10 @@ namespace SmartStore.Data.Setup
                 Picture = CreatePicture(File.ReadAllBytes(sampleImagesPath + "category_notebooks.png"), "image/png", GetSeName("Notebooks")),
 				Published = true,
 				DisplayOrder = 2,
-				MetaTitle = "Notebooks"
-			};
+				MetaTitle = "Notebooks",
+                CreatedOnUtc = DateTime.UtcNow,
+                UpdatedOnUtc = DateTime.UtcNow
+            };
 
 			var categoryGamingAccessories = new Category
 			{
@@ -6323,8 +6346,10 @@ namespace SmartStore.Data.Setup
 				Picture = CreatePicture(File.ReadAllBytes(sampleImagesPath + "category_gaming_accessories.png"), "image/png", GetSeName("Gaming Accessories")),
 				Published = true,
 				DisplayOrder = 2,
-				MetaTitle = "Gaming Accessories"
-			};
+				MetaTitle = "Gaming Accessories",
+                CreatedOnUtc = DateTime.UtcNow,
+                UpdatedOnUtc = DateTime.UtcNow
+            };
 
 			var categoryGamingGames = new Category
 			{
@@ -6338,8 +6363,10 @@ namespace SmartStore.Data.Setup
 				Picture = CreatePicture(File.ReadAllBytes(sampleImagesPath + "category_games.png"), "image/png", GetSeName("Games")),
 				Published = true,
 				DisplayOrder = 3,
-				MetaTitle = "Games"
-			};
+				MetaTitle = "Games",
+                CreatedOnUtc = DateTime.UtcNow,
+                UpdatedOnUtc = DateTime.UtcNow
+            };
 
 			#endregion category definitions
 
@@ -6688,7 +6715,7 @@ namespace SmartStore.Data.Setup
 			var entities = new List<Manufacturer>
 			{
 			  manufacturerApple,manufacturerSamsung,manufacturerLG,manufacturerTrekStor, manufacturerWesternDigital,manufacturerDell, manufacturerMSI,
-			  manufacturerCanon, manufacturerCasio, manufacturerPanasonic, manufacturerBlackBerry, manufacturerHTC, manufacturerFestina, manufacturerCertina, 
+			  manufacturerCanon, manufacturerCasio, manufacturerPanasonic, manufacturerBlackBerry, manufacturerHTC, manufacturerFestina, manufacturerCertina,
 			  manufacturerHP, manufacturerAcer, manufacturerSony, manufacturerUbisoft
 			};
 
@@ -6985,7 +7012,7 @@ namespace SmartStore.Data.Setup
 			};
 
             productBooksBestGrillingRecipes.ProductCategories.Add(new ProductCategory() { Category = categoryCookAndEnjoy, DisplayOrder = 1 });
-            
+
 			//pictures
 			productBooksBestGrillingRecipes.ProductPictures.Add(new ProductPicture()
 			{
@@ -7109,7 +7136,7 @@ namespace SmartStore.Data.Setup
 			};
 
             productBooksAutosDerSuperlative.ProductCategories.Add(new ProductCategory() { Category = categoryBooks, DisplayOrder = 1 });
-            
+
 			//pictures
 			productBooksAutosDerSuperlative.ProductPictures.Add(new ProductPicture()
 			{
@@ -7477,7 +7504,7 @@ namespace SmartStore.Data.Setup
 				AllowFiltering = true,
 				ShowOnProductPage = true,
 				DisplayOrder = 2,
-				// RAM -> 4 GB 
+				// RAM -> 4 GB
 				SpecificationAttributeOption = _ctx.Set<SpecificationAttribute>().Where(sa => sa.DisplayOrder == 4).Single().SpecificationAttributeOptions.Where(sao => sao.DisplayOrder == 1).Single()
 			});
 			productComputerDellInspiron23.ProductSpecificationAttributes.Add(new ProductSpecificationAttribute()
@@ -7583,7 +7610,7 @@ namespace SmartStore.Data.Setup
 				AllowFiltering = true,
 				ShowOnProductPage = true,
 				DisplayOrder = 2,
-				// RAM -> 4 GB 
+				// RAM -> 4 GB
 				SpecificationAttributeOption = _ctx.Set<SpecificationAttribute>().Where(sa => sa.DisplayOrder == 4).Single().SpecificationAttributeOptions.Where(sao => sao.DisplayOrder == 2).Single()
 			});
 			productComputerDellOptiplex3010.ProductSpecificationAttributes.Add(new ProductSpecificationAttribute()
@@ -7854,7 +7881,7 @@ namespace SmartStore.Data.Setup
 			};
 
             productInstantDownloadVivaldi.ProductCategories.Add(new ProductCategory() { Category = categoryMusic, DisplayOrder = 1 });
-            
+
 			#region pictures
 
 			//pictures
@@ -8183,7 +8210,7 @@ namespace SmartStore.Data.Setup
 				Sku = "Sony-PS399105",
 				Name = "PlayStation 3 Assassin's Creed III Bundle",
 				ShortDescription = "500GB PlayStation®3 system, 2 × DUALSHOCK®3 wireless controller and Assassin's Creed® III.",
-				FullDescription = 
+				FullDescription =
 					"<ul><li><h4>Processor</h4><ul><li>Processor Technology : Cell Broadband Engine™</li></ul></li><li><h4>General</h4><ul><li>Communication : Ethernet (10BASE-T, 100BASE-TX, 1000BASE-T IEEE 802.11 b/g Wi-Fi<br tabindex=\"0\">Bluetooth 2.0 (EDR)</li><li>Inputs and Outputs : USB 2.0 X 2</li></ul></li><li><h4>Graphics</h4><ul><li>Graphics Processor : RSX</li></ul></li><li><h4>Memory</h4><ul><li>Internal Memory : 256MB XDR Main RAM<br>256MB GDDR3 VRAM</li></ul></li><li><h4>Power</h4><ul><li>Power Consumption (in Operation) : Approximately 250 watts</li></ul></li><li><h4>Storage</h4><ul><li>Storage Capacity : 2.5' Serial ATA (500GB)</li></ul></li><li><h4>Video</h4><ul><li>Resolution : 480i, 480p, 720p, 1080i, 1080p (24p/60p)</li></ul></li><li><h4>Weights and Measurements</h4><ul><li>Dimensions (Approx.) : Approximately 11.42\" (W) x 2.56\" (H) x 11.42\" (D) (290mm x 65mm x 290mm)</li><li>Weight (Approx.) : Approximately 7.055 lbs (3.2 kg)</li></ul></li></ul>",
 				ProductTemplateId = productTemplateSimple.Id,
 				AllowCustomerReviews = true,
@@ -8528,7 +8555,7 @@ namespace SmartStore.Data.Setup
 			{
 				product5GiftCard, product25GiftCard, product50GiftCard, productBooksUberMan, productBooksGefangeneDesHimmels,
 				productBooksBestGrillingRecipes, productBooksCookingForTwo, productBooksAutosDerSuperlative,  productBooksBildatlasMotorraeder, productBooksAutoBuch, productBooksFastCars,
-				productBooksMotorradAbenteuer,  productComputerDellInspiron23, productComputerDellOptiplex3010,productSmartPhonesAppleIphone, 
+				productBooksMotorradAbenteuer,  productComputerDellInspiron23, productComputerDellOptiplex3010,productSmartPhonesAppleIphone,
 				productInstantDownloadVivaldi, productComputerAcerAspireOne, productInstantDownloadBeethoven, productWatchesCertinaDSPodiumBigSize,
 				productPs3, productDualshock3Controller, productAssassinsCreed3, productBundlePs3AssassinCreed,
 				productPs4, productDualshock4Controller, productPs4Camera, productBundlePs4,
@@ -8641,7 +8668,7 @@ namespace SmartStore.Data.Setup
 					_ctx.Entry(x).State = System.Data.Entity.EntityState.Modified;
 				});
 
-			_ctx.SaveChanges();			
+			_ctx.SaveChanges();
 		}
 
 		#region ForumGroups
@@ -8775,26 +8802,26 @@ namespace SmartStore.Data.Setup
 			{
 				new QuantityUnit
 					{
-						Name = "Piece",        
+						Name = "Piece",
                         Description = "Piece",
                         IsDefault = true,
 						DisplayOrder = 0,
 					},
 				new QuantityUnit
 					{
-						Name = "Box",           
+						Name = "Box",
                         Description = "Box",
 						DisplayOrder = 1,
 					},
 				new QuantityUnit
 					{
-						Name = "Parcel",        
+						Name = "Parcel",
                         Description = "Parcel",
 						DisplayOrder = 2,
 					},
                 new QuantityUnit
 					{
-						Name = "Palette",       
+						Name = "Palette",
                         Description = "Palette",
 						DisplayOrder = 3,
 					},
@@ -9239,7 +9266,7 @@ namespace SmartStore.Data.Setup
 			picture.MimeType = mimeType;
 			picture.SeoFilename = seoFilename;
 			picture.UpdatedOnUtc = DateTime.UtcNow;
-			
+
 			picture.MediaStorage = new MediaStorage
 			{
 				Data = pictureBinary
@@ -9270,7 +9297,9 @@ namespace SmartStore.Data.Setup
 					currency.CustomFormatting = formatting;
 					currency.Published = published;
 					currency.DisplayOrder = order;
-				}
+                    currency.CreatedOnUtc = DateTime.UtcNow;
+                    currency.UpdatedOnUtc = DateTime.UtcNow;
+                }
 			}
 			catch
 			{

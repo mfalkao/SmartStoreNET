@@ -275,6 +275,7 @@ namespace SmartStore.Web.Infrastructure.Installation
                     LanguageId = 0,
                     Slug = ValidateSeName(x, x.Name),
                     IsActive = true
+                    
                 });
             });
 
