@@ -13,6 +13,7 @@ using Autofac;
 using SmartStore.Core;
 using SmartStore.Core.Async;
 using SmartStore.Core.Data;
+using SmartStore.Core.Data.Hooks;
 using SmartStore.Core.Domain.Localization;
 using SmartStore.Core.Infrastructure;
 using SmartStore.Core.Logging;
@@ -20,6 +21,7 @@ using SmartStore.Core.Plugins;
 using SmartStore.Data;
 using SmartStore.Data.Setup;
 using SmartStore.Services.Configuration;
+using SmartStore.Services.Hooks;
 using SmartStore.Services.Security;
 using SmartStore.Utilities;
 using SmartStore.Web.Framework.Security;
@@ -476,11 +478,11 @@ namespace SmartStore.Web.Controllers
 					{
 						// SQL CE
 						string databaseFileName = "SmartStore.Db.sdf";
-						string databasePath = @"|DataDirectory|\" + databaseFileName;
-						connectionString = "Data Source=" + databasePath + ";Persist Security Info=False";
+						string databasePath = @"|DataDirectory|\Tenants\{0}\{1}".FormatInvariant(DataSettings.Current.TenantName, databaseFileName);
+						connectionString = "Data Source=" + databasePath + "; Persist Security Info=False";
 
 						// drop database if exists
-						string databaseFullPath = HostingEnvironment.MapPath("~/App_Data/") + databaseFileName;
+						string databaseFullPath = HostingEnvironment.MapPath(DataSettings.Current.TenantPath.EnsureEndsWith("/")) + databaseFileName;
 						if (System.IO.File.Exists(databaseFullPath))
 						{
 							System.IO.File.Delete(databaseFullPath);
@@ -499,12 +501,12 @@ namespace SmartStore.Web.Controllers
 
 					// init data provider
 					var dataProviderInstance = scope.Resolve<IEfDataProvider>();
-					
+
 					// Although obsolete we have no other chance than using this here.
 					// Delegating this to DbConfiguration is not possible during installation.
-					#pragma warning disable 618
+#pragma warning disable 618
 					Database.DefaultConnectionFactory = dataProviderInstance.GetConnectionFactory();
-					#pragma warning restore 618
+#pragma warning restore 618
 
 					// resolve SeedData instance from primary language
 					var lazyLanguage = _locService.GetAppLanguage(model.PrimaryLanguage);
@@ -522,6 +524,12 @@ namespace SmartStore.Web.Controllers
 
 					// create the DataContext
 					dbContext = new SmartObjectContext();
+
+					// AuditableHook must run
+					dbContext.DbHookHandler = new DefaultDbHookHandler(new[] 
+					{
+						new Lazy<IDbHook, HookMetadata>(() => new AuditableHook(), HookMetadata.Create<AuditableHook>(typeof(IAuditable), true), false)
+					});
 
 					// IMPORTANT: Migration would run way too early otherwise
 					Database.SetInitializer<SmartObjectContext>(null);
