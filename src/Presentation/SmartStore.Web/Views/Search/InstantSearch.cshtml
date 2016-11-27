@@ -1,0 +1,29 @@
+﻿@using SmartStore.Web.Models.Search
+
+@model InstantSearchResultModel
+
+@if (Model.TopProducts.Count == 0)
+{
+	return;
+}
+
+<ul class="instasearch-hits">
+	@foreach (var hit in Model.TopProducts)
+	{
+		<li>
+			<a class="instasearch-hit" href="@Url.RouteUrl("Product", new { SeName = hit.SeName })">
+				@Html.Raw(Model.SearchResult.Highlight(hit.Name, "<span class='instasearch-match'>", "</span>"))
+			</a>
+		</li>
+	}
+</ul>
+
+
+@if (Model.TotalProductsCount > Model.TopProducts.Count)
+{
+	<li>
+		<a class="instasearch-hit" href="@Url.RouteUrl("Search", new { q = Model.Term })">
+			Alle Treffer (@Model.TotalProductsCount Produkte)
+		</a>
+	</li>
+}
