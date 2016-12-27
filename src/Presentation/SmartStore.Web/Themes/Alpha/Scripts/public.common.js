@@ -1,5 +1,7 @@
 ﻿(function ($, window, document, undefined) {
 
+	var viewport = ResponsiveBootstrapToolkit;
+
     window.displayAjaxLoading = function(display) {
         if ($.throbber === undefined)
             return;
@@ -13,7 +15,11 @@
     }
 
     window.getPageWidth = function() {
-        return parseFloat($("#content").css("width"));
+        return parseFloat($("#page").css("width"));
+    }
+
+    window.getViewport = function () {
+    	return viewport;
     }
 
     var _commonPluginFactories = [
@@ -22,7 +28,7 @@
             if (!Modernizr.touch) {
                 if ($.fn.select2 === undefined || $.fn.selectWrapper === undefined)
                     return;
-                ctx.find("select:not(.noskin), input:hidden[data-select]").selectWrapper();
+                //ctx.find("select:not(.noskin), input:hidden[data-select]").selectWrapper();
             }
         },
         // tooltips
@@ -30,14 +36,61 @@
             if ($.fn.tooltip === undefined)
                 return;
             if (!Modernizr.touch) {
-                ctx.tooltip({ selector: "a[rel=tooltip], .tooltip-toggle" });
+                ctx.tooltip({ selector: '[data-toggle="tooltip"], .tooltip-toggle', container: 'body' });
             }
         },
-        // column equalizer
+        // slick carousel
         function (ctx) {
-            if ($.fn.equalizeColumns === undefined)
-                return;
-            ctx.find(".equalized-column").equalizeColumns({ /*deep: true,*/ responsive: true });
+        	if ($.fn.slick === undefined)
+        		return;
+
+        	ctx.find('.artlist-carousel > .artlist-grid').each(function (i, el) {
+        		var list = $(this);
+
+        		var slickData = list.parent().data('slick');
+        		
+        		if (slickData && list.data('slick') == undefined) {
+        			list.data('slick', slickData);
+        			console.log(list.data('slick'));
+        		}
+
+        		list.slick({
+        			infinite: false,
+        			dots: true,
+        			cssEase: 'ease-in-out',
+        			speed: 300,
+        			useCSS: true,
+        			useTransform: true,
+        			waitForAnimate: true,
+        			prevArrow: '<button type="button" class="btn btn-secondary slick-prev"><i class="fa fa-chevron-left"></i></button>',
+        			nextArrow: '<button type="button" class="btn btn-secondary slick-next"><i class="fa fa-chevron-right"></i></button>',
+        			respondTo: 'slider',
+        			slidesToShow: 6,
+        			slidesToScroll: 6,
+        			responsive: [
+						{
+							breakpoint: 280,
+							settings: { slidesToShow: 1, slidesToScroll: 1 }
+						},
+						{
+							breakpoint: 440,
+							settings: { slidesToShow: 2, slidesToScroll: 2 }
+						},
+						{
+							breakpoint: 640,
+							settings: { slidesToShow: 3, slidesToScroll: 3 }
+						},
+						{
+							breakpoint: 780,
+							settings: { slidesToShow: 4, slidesToScroll: 4 }
+						},
+						{
+							breakpoint: 960,
+							settings: { slidesToShow: 5, slidesToScroll: 5 }
+						},
+        			]
+        		});
+        	});
         }
     ];
 
@@ -82,31 +135,16 @@
             }
         }
 
-        // notify subscribers about page/content width change
+        // Notify subscribers about page/content width change
         if (window.EventBroker) {
-            pageWidth = getPageWidth(); // initial width
-            $(window).on("resize", function () {
-                // check if page width has changed
-                var newWidth = getPageWidth();
-                if (newWidth !== pageWidth) {
-                    // ...and publish event
-                    EventBroker.publish("page.resized", { oldWidth: pageWidth, newWidth: newWidth });
-                    pageWidth = newWidth;
-                }
-            });
+        	$(window).resize(
+				viewport.changed(function () {
+					var tier = viewport.current();
+					console.debug("Grid tier changed: " + tier);
+					EventBroker.publish("page.resized", viewport);
+				}, 100)
+			);
         }
-
-        // create navbar
-        if ($.fn.navbar)
-        {
-            $('.navbar ul.nav-smart > li.dropdown').navbar();
-        }
-
-        // shrink menu
-        if ($.fn.shrinkMenu) {
-            $(".shrink-menu").shrinkMenu({ responsive: true });
-        }
-
         
         applyCommonPlugins($("body"));
 

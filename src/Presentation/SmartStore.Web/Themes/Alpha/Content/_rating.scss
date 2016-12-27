@@ -1,4 +1,6 @@
-﻿//
+﻿/// <reference path="bs4/scss/bootstrap.scss" />
+
+//
 // Review & Rating Styles
 // --------------------------------------------------
 
@@ -11,12 +13,16 @@
     margin-bottom: 1rem !important;
 }
 
-/* Ratings
-================================================ */
+
+//
+// Ratings
+// --------------------------------------------------
+
 .rating {
 	display: inline-block;
 	height: 16px;
 	width: 80px;
+    //vertical-align: middle;
 	background-image: url('images/star-off.png');
 	background-repeat: repeat-x;
 	background-position: 0 50%;
@@ -36,8 +42,11 @@
 	background-image: url('images/star-on-12.png');
 }
 
-/* Reviews
-================================================ */
+
+//
+// Reviews
+// --------------------------------------------------
+
 .product-reviews-page .write-review .inputs,
 .product-reviews-page .write-review .captcha-box { 
     margin-bottom:12px;
@@ -59,7 +68,7 @@
 	margin-top: 12px;
 }
 .product-review-vote {
-    font-size: .8rem;
+    font-size: $font-size-sm;
 }
 .product-review-vote .vote {
 	text-decoration: none;

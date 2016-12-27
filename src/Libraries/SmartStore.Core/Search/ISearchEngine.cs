@@ -42,11 +42,10 @@ namespace SmartStore.Core.Search
 		IDictionary<string, FacetGroup> GetFacetMap();
 
 		/// <summary>
-		/// Get suggestions of similar words
+		/// Performs spell checking ("Diy you mean?")
 		/// </summary>
-		/// <param name="numberOfSuggestions">Maximum number of similar words to be returned</param>
-		/// <returns>Suggestions of similar words</returns>
-		string[] GetSuggestions(int numberOfSuggestions);
+		/// <returns>Suggestions/corrections or an empty array</returns>
+		string[] CheckSpelling();
 
 		/// <summary>
 		/// Highlights chosen terms in a text, extracting the most relevant sections

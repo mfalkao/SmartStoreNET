@@ -1,4 +1,6 @@
-﻿using SmartStore.Core;
+﻿using System;
+using System.Collections.Generic;
+using SmartStore.Core;
 using SmartStore.Core.Domain.Catalog;
 using SmartStore.Core.Search;
 
@@ -6,19 +8,25 @@ namespace SmartStore.Services.Search
 {
 	public partial class CatalogSearchResult
 	{
+		private readonly int _totalHitsCount;
+		private readonly Func<IList<Product>> _hitsFactory;
+		private IPagedList<Product> _hits;
+
 		public CatalogSearchResult(
 			ISearchEngine engine,
-			IPagedList<Product> hits,
+			int totalHitsCount,
+			Func<IList<Product>> hitsFactory,
 			CatalogSearchQuery query,
-			string[] suggestions)
+			string[] spellCheckerSuggestions)
 		{
-			Guard.NotNull(hits, nameof(hits));
 			Guard.NotNull(query, nameof(query));
 
 			Engine = engine;
-			Hits = hits;
 			Query = query;
-			Suggestions = suggestions ?? new string[0];
+			SpellCheckerSuggestions = spellCheckerSuggestions ?? new string[0];
+
+			_hitsFactory = hitsFactory ?? (() => new List<Product>());
+			_totalHitsCount = totalHitsCount;
 		}
 
 		/// <summary>
@@ -26,8 +34,24 @@ namespace SmartStore.Services.Search
 		/// </summary>
 		public IPagedList<Product> Hits
 		{
-			get;
-			private set;
+			get
+			{
+				if (_hits == null)
+				{
+					var products = _totalHitsCount == 0 
+						? new List<Product>() 
+						: _hitsFactory.Invoke();
+
+					_hits = new PagedList<Product>(products, Query.PageIndex, Query.Take, _totalHitsCount);
+				}
+
+				return _hits;
+			}
+		}
+
+		public int TotalHitsCount
+		{
+			get { return _totalHitsCount; }
 		}
 
 		/// <summary>
@@ -40,12 +64,12 @@ namespace SmartStore.Services.Search
 		}
 
 		/// <summary>
-		/// Gets the word suggestions.
+		/// Gets spell checking suggestions/corrections
 		/// </summary>
-		public string[] Suggestions
+		public string[] SpellCheckerSuggestions
 		{
 			get;
-			private set;
+			set;
 		}
 
 		public ISearchEngine Engine

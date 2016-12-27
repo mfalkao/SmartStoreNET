@@ -68,7 +68,7 @@
 			$.ajax({
 				dataType: "html",
 				url: url,
-				data: { term: term },
+				data: { q: term },
 				type: 'POST',
 				success: function (html) {
 					if (_.str.isBlank(html)) {
@@ -110,8 +110,6 @@
 			});
 
 			keyNav = dropBody.data("keyNav");
-
-			console.log(keyNav);
 
 			dropBody.on("keyNav.selected", function (e) {
 				// Triggered when user presses Enter after navigating to a hit with keyboard

@@ -2,33 +2,40 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using SmartStore.Core;
 using SmartStore.Core.Data;
 using SmartStore.Core.Domain.Catalog;
 using SmartStore.Core.Domain.Localization;
 using SmartStore.Core.Domain.Security;
 using SmartStore.Core.Domain.Stores;
+using SmartStore.Core.Events;
 using SmartStore.Core.Search;
+using SmartStore.Services.Catalog;
 
 namespace SmartStore.Services.Search
 {
 	public partial class LinqCatalogSearchService : ICatalogSearchService
 	{
+		private readonly IProductService _productService;
 		private readonly IRepository<Product> _productRepository;
 		private readonly IRepository<LocalizedProperty> _localizedPropertyRepository;
 		private readonly IRepository<StoreMapping> _storeMappingRepository;
 		private readonly IRepository<AclRecord> _aclRepository;
+		private readonly IEventPublisher _eventPublisher;
 
 		public LinqCatalogSearchService(
+			IProductService productService,
 			IRepository<Product> productRepository,
 			IRepository<LocalizedProperty> localizedPropertyRepository,
 			IRepository<StoreMapping> storeMappingRepository,
-			IRepository<AclRecord> aclRepository)
+			IRepository<AclRecord> aclRepository,
+			IEventPublisher eventPublisher)
 		{
+			_productService = productService;
 			_productRepository = productRepository;
 			_localizedPropertyRepository = localizedPropertyRepository;
 			_storeMappingRepository = storeMappingRepository;
 			_aclRepository = aclRepository;
+			_eventPublisher = eventPublisher;
 
 			QuerySettings = DbQuerySettings.Default;
 		}
@@ -129,23 +136,19 @@ namespace SmartStore.Services.Search
 
 			if (term.HasValue() && fields != null && fields.Length != 0 && fields.Any(x => x.HasValue()))
 			{
-				if (searchQuery.IsExactMatch)
+				// SearchMode.ExactMatch doesn't make sense here
+				if (searchQuery.Mode == SearchMode.StartsWith)
 				{
 					query =
 						from p in query
 						join lp in _localizedPropertyRepository.Table on p.Id equals lp.EntityId into plp
 						from lp in plp.DefaultIfEmpty()
-						from pt in p.ProductTags.DefaultIfEmpty()
 						where
-						(fields.Contains("name") && p.Name == term) ||
-						(fields.Contains("sku") && p.Sku == term) ||
-						(fields.Contains("shortdescription") && p.ShortDescription == term) ||
-						(fields.Contains("fulldescription") && p.FullDescription == term) ||
-						(fields.Contains("tagname") && pt.Name == term) ||
-						(languageId != 0 && lp.LanguageId == languageId && lp.LocaleKeyGroup == "Product" && lp.LocaleKey == "Name" && lp.LocaleValue == term) ||
-						(languageId != 0 && lp.LanguageId == languageId && lp.LocaleKeyGroup == "Product" && lp.LocaleKey == "ShortDescription" && lp.LocaleValue == term) ||
-						(languageId != 0 && lp.LanguageId == languageId && lp.LocaleKeyGroup == "Product" && lp.LocaleKey == "FullDescription" && lp.LocaleValue == term) ||
-						(languageId != 0 && lp.LanguageId == languageId && lp.LocaleKeyGroup == "ProductTag" && lp.LocaleKey == "Name" && lp.LocaleValue == term)
+						(fields.Contains("name") && p.Name.StartsWith(term)) ||
+						(fields.Contains("sku") && p.Sku.StartsWith(term)) ||
+						(fields.Contains("shortdescription") && p.ShortDescription.StartsWith(term)) ||
+						(languageId != 0 && lp.LanguageId == languageId && lp.LocaleKeyGroup == "Product" && lp.LocaleKey == "Name" && lp.LocaleValue.StartsWith(term)) ||
+						(languageId != 0 && lp.LanguageId == languageId && lp.LocaleKeyGroup == "Product" && lp.LocaleKey == "ShortDescription" && lp.LocaleValue.StartsWith(term))
 						select p;
 				}
 				else
@@ -154,17 +157,12 @@ namespace SmartStore.Services.Search
 						from p in query
 						join lp in _localizedPropertyRepository.Table on p.Id equals lp.EntityId into plp
 						from lp in plp.DefaultIfEmpty()
-						from pt in p.ProductTags.DefaultIfEmpty()
 						where
 						(fields.Contains("name") && p.Name.Contains(term)) ||
 						(fields.Contains("sku") && p.Sku.Contains(term)) ||
 						(fields.Contains("shortdescription") && p.ShortDescription.Contains(term)) ||
-						(fields.Contains("fulldescription") && p.FullDescription.Contains(term)) ||
-						(fields.Contains("tagname") && pt.Name.Contains(term)) ||
 						(languageId != 0 && lp.LanguageId == languageId && lp.LocaleKeyGroup == "Product" && lp.LocaleKey == "Name" && lp.LocaleValue.Contains(term)) ||
-						(languageId != 0 && lp.LanguageId == languageId && lp.LocaleKeyGroup == "Product" && lp.LocaleKey == "ShortDescription" && lp.LocaleValue.Contains(term)) ||
-						(languageId != 0 && lp.LanguageId == languageId && lp.LocaleKeyGroup == "Product" && lp.LocaleKey == "FullDescription" && lp.LocaleValue.Contains(term)) ||
-						(languageId != 0 && lp.LanguageId == languageId && lp.LocaleKeyGroup == "ProductTag" && lp.LocaleKey == "Name" && lp.LocaleValue.Contains(term))
+						(languageId != 0 && lp.LanguageId == languageId && lp.LocaleKeyGroup == "Product" && lp.LocaleKey == "ShortDescription" && lp.LocaleValue.Contains(term))
 						select p;
 				}
 			}
@@ -512,68 +510,48 @@ namespace SmartStore.Services.Search
 
 			#endregion
 
+			query = 
+				from p in query
+				group p by p.Id	into grp
+				orderby grp.Key
+				select grp.FirstOrDefault();
+
 			return query;
-		}
-
-		protected virtual string[] GetSuggestions(CatalogSearchQuery searchQuery)
-		{
-			var tokens = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-
-			var names = GetProductQuery(searchQuery)
-				.Select(x => x.Name)
-				.Take(5 * searchQuery.NumberOfSuggestions)
-				.ToList();
-
-			foreach (var name in names)
-			{
-				foreach (var str in name.SplitSafe(" "))
-				{
-					var token = str.Trim();
-					if (token.IndexOf(searchQuery.Term, StringComparison.OrdinalIgnoreCase) >= 0 && !token.IsCaseInsensitiveEqual(searchQuery.Term))
-					{
-						if (tokens.ContainsKey(token))
-						{
-							tokens[token] = tokens[token] + 1;
-						}
-						else
-						{
-							tokens.Add(token, 1);
-						}
-					}
-				}
-			}
-
-			var suggestions = tokens
-				.OrderByDescending(x => x.Value)
-				.Select(x => x.Key)
-				.Take(searchQuery.NumberOfSuggestions)
-				.ToArray();
-
-			return suggestions;
 		}
 
 		#endregion
 
-		public CatalogSearchResult Search(CatalogSearchQuery searchQuery)
+		public CatalogSearchResult Search(CatalogSearchQuery searchQuery, ProductLoadFlags loadFlags = ProductLoadFlags.None, bool direct = false)
 		{
-			string[] suggestions = null;
-			PagedList<Product> hits;
+			_eventPublisher.Publish(new CatalogSearchingEvent(searchQuery));
+
+			int totalCount = 0;
+			Func<IList<Product>> hitsFactory = null;
 
 			if (searchQuery.Take > 0)
 			{
-				hits = new PagedList<Product>(GetProductQuery(searchQuery), searchQuery.PageIndex, searchQuery.Take);
-			}
-			else
-			{
-				hits = new PagedList<Product>(new List<Product>(), searchQuery.PageIndex, searchQuery.Take);
+				var query = GetProductQuery(searchQuery);
+
+				totalCount = query.Count();
+
+				query = query
+					.Skip(searchQuery.PageIndex * searchQuery.Take)
+					.Take(searchQuery.Take);
+
+				var ids = query.Select(x => x.Id).ToArray();
+				hitsFactory = () => _productService.GetProductsByIds(ids, loadFlags);
 			}
 
-			if (searchQuery.NumberOfSuggestions > 0 && searchQuery.Term.HasValue())
-			{
-				suggestions = GetSuggestions(searchQuery);
-			}
-			
-			return new CatalogSearchResult(null, hits, searchQuery, suggestions);
+			var result = new CatalogSearchResult(
+				null,
+				totalCount,
+				hitsFactory,
+				searchQuery,
+				null);
+
+			_eventPublisher.Publish(new CatalogSearchedEvent(searchQuery, result));
+
+			return result;
 		}
 	}
 }

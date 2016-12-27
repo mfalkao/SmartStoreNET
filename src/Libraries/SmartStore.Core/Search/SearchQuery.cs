@@ -16,13 +16,13 @@ namespace SmartStore.Core.Search
 		{
 		}
 
-		public SearchQuery(string field, string term, bool escape = false, bool isExactMatch = false, bool isFuzzySearch = false)
-			: base(field.HasValue() ? new[] { field } : null, term, escape, isExactMatch, isFuzzySearch)
+		public SearchQuery(string field, string term, SearchMode mode = SearchMode.StartsWith, bool escape = false, bool isFuzzySearch = false)
+			: base(field.HasValue() ? new[] { field } : null, term, mode, escape, isFuzzySearch)
 		{
 		}
 
-		public SearchQuery(string[] fields, string term, bool escape = false, bool isExactMatch = false, bool isFuzzySearch = false)
-			: base(fields, term, escape, isExactMatch, isFuzzySearch)
+		public SearchQuery(string[] fields, string term, SearchMode mode = SearchMode.StartsWith, bool escape = false, bool isFuzzySearch = false)
+			: base(fields, term, mode, escape, isFuzzySearch)
 		{
 		}
 	}
@@ -30,13 +30,14 @@ namespace SmartStore.Core.Search
 	public class SearchQuery<TQuery> : ISearchQuery where TQuery : class, ISearchQuery
 	{
 		private readonly Dictionary<string, FacetDescriptor> _facetDescriptors;
+		private Dictionary<string, object> _customData;
 
-		protected SearchQuery(string[] fields, string term, bool escape = false, bool isExactMatch = false, bool isFuzzySearch = false)
+		protected SearchQuery(string[] fields, string term, SearchMode mode = SearchMode.StartsWith, bool escape = false, bool isFuzzySearch = false)
 		{
 			Fields = fields;
 			Term = term;
+			Mode = mode;
 			EscapeTerm = escape;
-			IsExactMatch = isExactMatch;
 			IsFuzzySearch = isFuzzySearch;
 
 			Filters = new List<ISearchFilter>();
@@ -44,17 +45,20 @@ namespace SmartStore.Core.Search
 			_facetDescriptors = new Dictionary<string, FacetDescriptor>(StringComparer.OrdinalIgnoreCase);
 
 			Take = int.MaxValue;
+
+			SpellCheckerMinQueryLength = 4;
 		}
 
-		// Language
+		// Language & Store
 		public int? LanguageId { get; protected set; }
 		public string LanguageSeoCode { get; protected set; }
+		public int? StoreId { get; protected set; }
 
 		// Search term
-		public string[] Fields { get; protected set; }
-		public string Term { get; protected set; }
+		public string[] Fields { get; set; }
+		public string Term { get; set; }
 		public bool EscapeTerm { get; protected set; }
-		public bool IsExactMatch { get; protected set; }
+		public SearchMode Mode { get; protected set; }
 		public bool IsFuzzySearch { get; protected set; }
 
 		// Filtering
@@ -63,10 +67,7 @@ namespace SmartStore.Core.Search
 		// Facets
 		public IReadOnlyDictionary<string, FacetDescriptor> FacetDescriptors
 		{
-			get
-			{
-				return _facetDescriptors;
-			}
+			get { return _facetDescriptors; }
 		}
 
 		// Paging
@@ -83,12 +84,34 @@ namespace SmartStore.Core.Search
 			}
 		}
 
-		public int NumberOfSuggestions { get; protected set; }
-
 		// Sorting
 		public ICollection<SearchSort> Sorting { get; }
 
+		// Spell checker
+		public int SpellCheckerMaxSuggestions { get; protected set; }
+		public int SpellCheckerMinQueryLength { get; protected set; }
+
+		// Misc
+		public string Origin { get; protected set; }
+
+		public IDictionary<string, object> CustomData
+		{
+			get
+			{
+				return _customData ?? (_customData = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase));
+			}
+		}
+
 		#region Fluent builder
+
+		public virtual TQuery HasStoreId(int id)
+		{
+			Guard.IsPositive(id, nameof(id));
+
+			StoreId = id;
+
+			return (this as TQuery);
+		}
 
 		public TQuery WithLanguage(Language language)
 		{
@@ -111,11 +134,12 @@ namespace SmartStore.Core.Search
 			return (this as TQuery);
 		}
 
-		public TQuery WithSuggestions(int numberOfSuggestions)
+		public TQuery CheckSpelling(int maxSuggestions, int minQueryLength = 4)
 		{
-			Guard.IsPositive(numberOfSuggestions, nameof(numberOfSuggestions));
+			Guard.IsPositive(maxSuggestions, nameof(maxSuggestions));
 
-			NumberOfSuggestions = numberOfSuggestions;
+			SpellCheckerMaxSuggestions = maxSuggestions;
+			SpellCheckerMinQueryLength = minQueryLength;
 
 			return (this as TQuery);
 		}
@@ -138,7 +162,7 @@ namespace SmartStore.Core.Search
 			return (this as TQuery);
 		}
 
-		public TQuery AddFacetDescriptor(FacetDescriptor facetDescription)
+		public TQuery WithFacet(FacetDescriptor facetDescription)
 		{
 			Guard.NotNull(facetDescription, nameof(facetDescription));
 
@@ -148,6 +172,15 @@ namespace SmartStore.Core.Search
 			}
 
 			_facetDescriptors.Add(facetDescription.Key, facetDescription);
+
+			return (this as TQuery);
+		}
+
+		public TQuery OriginatesFrom(string origin)
+		{
+			Guard.NotEmpty(origin, nameof(origin));
+
+			Origin = origin;
 
 			return (this as TQuery);
 		}
@@ -164,7 +197,7 @@ namespace SmartStore.Core.Search
 
 				sb.AppendFormat("'{0}' in {1}", Term, fields);
 
-				var parameters = string.Join(" ", EscapeTerm ? "escape" : "", IsFuzzySearch ? "fuzzy" : (IsExactMatch ? "exact" : "")).TrimSafe();
+				var parameters = string.Join(" ", EscapeTerm ? "escape" : "", IsFuzzySearch ? "fuzzy" : Mode.ToString()).TrimSafe();
 
 				if (parameters.HasValue())
 				{

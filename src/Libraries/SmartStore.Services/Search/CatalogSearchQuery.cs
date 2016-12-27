@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using SmartStore.Core.Domain.Catalog;
 using SmartStore.Core.Domain.Customers;
@@ -8,7 +7,7 @@ using SmartStore.Core.Search;
 
 namespace SmartStore.Services.Search
 {
-	public partial class CatalogSearchQuery : SearchQuery<CatalogSearchQuery>
+	public partial class CatalogSearchQuery : SearchQuery<CatalogSearchQuery>, ICloneable<CatalogSearchQuery>
 	{
 		/// <summary>
 		/// Initializes a new instance of the <see cref="CatalogSearchQuery"/> class without a search term being set
@@ -18,14 +17,24 @@ namespace SmartStore.Services.Search
 		{
 		}
 
-		public CatalogSearchQuery(string field, string term, bool escape = false, bool isExactMatch = false, bool isFuzzySearch = false)
-			: base(field.HasValue() ? new[] { field } : null, term, escape, isExactMatch, isFuzzySearch)
+		public CatalogSearchQuery(string field, string term, SearchMode mode = SearchMode.StartsWith, bool escape = true, bool isFuzzySearch = false)
+			: base(field.HasValue() ? new[] { field } : null, term, mode, escape, isFuzzySearch)
 		{
 		}
 
-		public CatalogSearchQuery(string[] fields, string term, bool escape = false, bool isExactMatch = false, bool isFuzzySearch = false)
-			: base(fields, term, escape, isExactMatch, isFuzzySearch)
+		public CatalogSearchQuery(string[] fields, string term, SearchMode mode = SearchMode.StartsWith, bool escape = true, bool isFuzzySearch = false)
+			: base(fields, term, mode, escape, isFuzzySearch)
 		{
+		}
+
+		public CatalogSearchQuery Clone()
+		{
+			return (CatalogSearchQuery)this.MemberwiseClone();
+		}
+
+		object ICloneable.Clone()
+		{
+			return this.MemberwiseClone();
 		}
 
 		#region Fluent builder
@@ -46,7 +55,7 @@ namespace SmartStore.Services.Search
 				case ProductSortingEnum.PriceDesc:
 					return SortBy(SearchSort.ByDoubleField("price", sort == ProductSortingEnum.PriceDesc));
 
-				case ProductSortingEnum.Position:
+				case ProductSortingEnum.Relevance:
 					return SortBy(SearchSort.ByRelevance());
 
 				default:
@@ -57,13 +66,18 @@ namespace SmartStore.Services.Search
 		/// <summary>
 		/// Only products that are visible in frontend
 		/// </summary>
-		/// <param name="customer">Customer whose customer roles should be checked</param>
+		/// <param name="customer">Customer whose customer roles should be checked, can be <c>null</c></param>
 		/// <returns>Catalog search query</returns>
 		public CatalogSearchQuery VisibleOnly(Customer customer)
 		{
-			var allowedCustomerRoleIds = customer.CustomerRoles.Where(x => x.Active).Select(x => x.Id).ToArray();
+			if (customer != null)
+			{
+				var allowedCustomerRoleIds = customer.CustomerRoles.Where(x => x.Active).Select(x => x.Id).ToArray();
 
-			return VisibleOnly(allowedCustomerRoleIds);
+				return VisibleOnly(allowedCustomerRoleIds);
+			}
+
+			return VisibleOnly(new int[0]);
 		}
 
 		/// <summary>
@@ -80,17 +94,12 @@ namespace SmartStore.Services.Search
 			WithFilter(SearchFilter.ByRange("availablestart", null, utcNow, false, false).Mandatory().NotAnalyzed());
 			WithFilter(SearchFilter.ByRange("availableend", utcNow, null, false, false).Mandatory().NotAnalyzed());
 
-			var roleIds = (allowedCustomerRoleIds != null ? allowedCustomerRoleIds.Where(x => x != 0).Distinct().ToList() : new List<int>());
-			var roleIdCount = roleIds.Count;
-
-			if (roleIdCount > 0)
+			if (allowedCustomerRoleIds != null && allowedCustomerRoleIds.Length > 0)
 			{
-				if (roleIdCount == 1)
+				var roleIds = allowedCustomerRoleIds.Where(x => x != 0).Distinct().ToList();
+				if (roleIds.Any())
 				{
-					WithFilter(SearchFilter.ByField("roleid", roleIds.First()).Mandatory().ExactMatch().NotAnalyzed());
-				}
-				else
-				{
+					roleIds.Insert(0, 0);
 					WithFilter(SearchFilter.Combined(roleIds.Select(x => SearchFilter.ByField("roleid", x).ExactMatch().NotAnalyzed()).ToArray()));
 				}
 			}
@@ -118,9 +127,14 @@ namespace SmartStore.Services.Search
 			return WithFilter(SearchFilter.ByField("parentid", id).Mandatory().ExactMatch().NotAnalyzed());
 		}
 
-		public CatalogSearchQuery HasStoreId(int id)
+		public override CatalogSearchQuery HasStoreId(int id)
 		{
-			return WithFilter(SearchFilter.ByField("storeid", id).Mandatory().ExactMatch().NotAnalyzed());
+			base.HasStoreId(id);
+
+			return WithFilter(SearchFilter.Combined(
+				SearchFilter.ByField("storeid", 0).ExactMatch().NotAnalyzed(),
+				SearchFilter.ByField("storeid", id).ExactMatch().NotAnalyzed())
+			);
 		}
 
 		public CatalogSearchQuery IsProductType(ProductType type)
@@ -130,8 +144,7 @@ namespace SmartStore.Services.Search
 
 		public CatalogSearchQuery WithProductIds(params int[] ids)
 		{
-			ids.Each(x => WithFilter(SearchFilter.ByField("id", x).ExactMatch().NotAnalyzed()));
-			return this;
+			return WithFilter(SearchFilter.Combined(ids.Select(x => SearchFilter.ByField("id", x).ExactMatch().NotAnalyzed()).ToArray()));
 		}
 
 		public CatalogSearchQuery WithProductId(int? fromId, int? toId)
@@ -139,8 +152,22 @@ namespace SmartStore.Services.Search
 			return WithFilter(SearchFilter.ByRange("id", fromId, toId, fromId.HasValue, toId.HasValue).Mandatory().ExactMatch().NotAnalyzed());
 		}
 
+		/// <summary>
+		/// Category ids filter
+		/// </summary>
+		/// <param name="featuredOnly">
+		/// A value indicating whether loaded products are marked as featured (relates only to categories and manufacturers). 
+		/// <c>false</c> to load featured products only, <c>true</c> to load unfeatured products only, <c>null</c> to load all products
+		/// </param>
+		/// <param name="ids">The category ids</param>
+		/// <returns>Query</returns>
 		public CatalogSearchQuery WithCategoryIds(bool? featuredOnly, params int[] ids)
 		{
+			if (ids.Length == 0)
+			{
+				return this;
+			}
+
 			string fieldName = null;
 
 			if (featuredOnly.HasValue)
@@ -148,8 +175,7 @@ namespace SmartStore.Services.Search
 			else
 				fieldName = "categoryid";
 
-			ids.Each(x => WithFilter(SearchFilter.ByField(fieldName, x).ExactMatch().NotAnalyzed()));
-			return this;
+			return WithFilter(SearchFilter.Combined(ids.Select(x => SearchFilter.ByField(fieldName, x).ExactMatch().NotAnalyzed()).ToArray()));
 		}
 
 		public CatalogSearchQuery HasAnyCategory(bool value)
@@ -173,8 +199,7 @@ namespace SmartStore.Services.Search
 			else
 				fieldName = "manufacturerid";
 
-			ids.Each(x => WithFilter(SearchFilter.ByField(fieldName, x).ExactMatch().NotAnalyzed()));
-			return this;
+			return WithFilter(SearchFilter.Combined(ids.Select(x => SearchFilter.ByField(fieldName, x).ExactMatch().NotAnalyzed()).ToArray()));
 		}
 
 		public CatalogSearchQuery HasAnyManufacturer(bool value)
@@ -191,8 +216,7 @@ namespace SmartStore.Services.Search
 
 		public CatalogSearchQuery WithProductTagIds(params int[] ids)
 		{
-			ids.Each(x => WithFilter(SearchFilter.ByField("tagid", x).ExactMatch().NotAnalyzed()));
-			return this;
+			return WithFilter(SearchFilter.Combined(ids.Select(x => SearchFilter.ByField("tagid", x).ExactMatch().NotAnalyzed()).ToArray()));
 		}
 
 		public CatalogSearchQuery WithStockQuantity(int? fromQuantity, int? toQuantity)
@@ -200,7 +224,7 @@ namespace SmartStore.Services.Search
 			return WithFilter(SearchFilter.ByRange("stockquantity", fromQuantity, toQuantity, fromQuantity.HasValue, toQuantity.HasValue).Mandatory().ExactMatch().NotAnalyzed());
 		}
 
-		public CatalogSearchQuery WithPrice(Currency currency, decimal? fromPrice, decimal? toPrice)
+		public CatalogSearchQuery PriceBetween(decimal? fromPrice, decimal? toPrice, Currency currency)
 		{
 			Guard.NotNull(currency, nameof(currency));
 
@@ -213,9 +237,23 @@ namespace SmartStore.Services.Search
 				toPrice.HasValue).Mandatory().ExactMatch().NotAnalyzed());
 		}
 
-		public CatalogSearchQuery WithCreatedUtc(DateTime? fromUtc, DateTime? toUtc)
+		public CatalogSearchQuery CreatedBetween(DateTime? fromUtc, DateTime? toUtc)
 		{
 			return WithFilter(SearchFilter.ByRange("createdon", fromUtc, toUtc, fromUtc.HasValue, toUtc.HasValue).Mandatory().ExactMatch().NotAnalyzed());
+		}
+
+		public CatalogSearchQuery WithRating(double? fromRate, double? toRate)
+		{
+			if (fromRate.HasValue)
+			{
+				Guard.InRange(fromRate.Value, 0.0, 5.0, nameof(fromRate.Value));
+			}
+			if (toRate.HasValue)
+			{
+				Guard.InRange(toRate.Value, 0.0, 5.0, nameof(toRate.Value));
+			}
+
+			return WithFilter(SearchFilter.ByRange("rate", fromRate, toRate, fromRate.HasValue, toRate.HasValue).Mandatory().ExactMatch().NotAnalyzed());
 		}
 
 		#endregion

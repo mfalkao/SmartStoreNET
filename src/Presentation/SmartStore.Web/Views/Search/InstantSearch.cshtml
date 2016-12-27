@@ -1,29 +1,51 @@
 ﻿@using SmartStore.Web.Models.Search
 
-@model InstantSearchResultModel
+@model SearchResultModel
 
-@if (Model.TopProducts.Count == 0)
+@{
+	var hitGroups = Model.HitGroups.Where(x => x.Hits.Any()).OrderBy(x => x.Ordinal).ToArray();
+	var hasContent = Model.TopProducts.Items.Count > 0 || hitGroups.Any();
+	var isMultiCol = false;
+	if (hasContent)
+	{
+		isMultiCol = 
+			Model.TopProducts.Items.Count > 0 
+			&& (hitGroups.Length > 1 || hitGroups.Sum(x => x.Hits.Count) > 4);
+	}
+}
+
+@if (!hasContent)
 {
 	return;
 }
 
-<ul class="instasearch-hits">
-	@foreach (var hit in Model.TopProducts)
-	{
-		<li>
-			<a class="instasearch-hit" href="@Url.RouteUrl("Product", new { SeName = hit.SeName })">
-				@Html.Raw(Model.SearchResult.Highlight(hit.Name, "<span class='instasearch-match'>", "</span>"))
-			</a>
-		</li>
-	}
-</ul>
-
-
-@if (Model.TotalProductsCount > Model.TopProducts.Count)
+@if (isMultiCol)
 {
-	<li>
-		<a class="instasearch-hit" href="@Url.RouteUrl("Search", new { q = Model.Term })">
-			Alle Treffer (@Model.TotalProductsCount Produkte)
-		</a>
-	</li>
+	<div class="row no-space instasearch-row">
+		<div class="col-xs-12 col-sm-5 instasearch-col">
+			@foreach (var group in hitGroups)
+            {
+                Html.RenderPartial("InstantSearch.HitGroup", group);
+            }
+		</div>
+		<div class="col-xs-12 col-sm-7 instasearch-col">
+			<h6 class="instasearch-group-header">@T("Search.Hits")</h6>
+			@{ Html.RenderPartial("InstantSearch.TopProducts", Model); }
+		</div>
+	</div>
 }
+else
+{
+    foreach (var group in hitGroups)
+    {
+        Html.RenderPartial("InstantSearch.HitGroup", group);
+    }
+
+    if (Model.TopProducts.Items.Count > 0)
+    {
+		<h6 class="instasearch-group-header">@T("Search.Hits")</h6>
+
+		Html.RenderPartial("InstantSearch.TopProducts", Model);
+	}
+}
+

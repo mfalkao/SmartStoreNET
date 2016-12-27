@@ -91,7 +91,7 @@ namespace SmartStore.Services.DataExchange.Export
 				GenericAttribute entity = genericAttribute.Entity;
 
 				_writer.WriteStartElement("GenericAttribute");
-				_writer.Write("Id", entity.ToString());
+				_writer.Write("Id", entity.Id.ToString());
 				_writer.Write("EntityId", entity.EntityId.ToString());
 				_writer.Write("KeyGroup", entity.KeyGroup);
 				_writer.Write("Key", entity.Key);
@@ -115,6 +115,8 @@ namespace SmartStore.Services.DataExchange.Export
 			}
 
 			_writer.Write("Id", entity.Id.ToString());
+			_writer.Write("Salutation", entity.Salutation);
+			_writer.Write("Title", entity.Title);
 			_writer.Write("FirstName", entity.FirstName);
 			_writer.Write("LastName", entity.LastName);
 			_writer.Write("Email", entity.Email);
@@ -346,11 +348,10 @@ namespace SmartStore.Services.DataExchange.Export
 				_writer.Write("MetaTitle", (string)category.MetaTitle);
 				_writer.Write("SeName", (string)category.SeName);
 				_writer.Write("ParentCategoryId", entity.ParentCategoryId.ToString());
-				_writer.Write("PictureId", entity.PictureId.HasValue ? entity.PictureId.Value.ToString() : "");
+				_writer.Write("PictureId", entity.PictureId.ToString());
 				_writer.Write("PageSize", entity.PageSize.ToString());
 				_writer.Write("AllowCustomersToSelectPageSize", entity.AllowCustomersToSelectPageSize.ToString());
 				_writer.Write("PageSizeOptions", entity.PageSizeOptions);
-				_writer.Write("PriceRanges", entity.PriceRanges);
 				_writer.Write("ShowOnHomePage", entity.ShowOnHomePage.ToString());
 				_writer.Write("HasDiscountsApplied", entity.HasDiscountsApplied.ToString());
 				_writer.Write("Published", entity.Published.ToString());
@@ -394,11 +395,10 @@ namespace SmartStore.Services.DataExchange.Export
 			_writer.Write("MetaKeywords", (string)manufacturer.MetaKeywords);
 			_writer.Write("MetaDescription", (string)manufacturer.MetaDescription);
 			_writer.Write("MetaTitle", (string)manufacturer.MetaTitle);
-			_writer.Write("PictureId", entity.PictureId.HasValue ? entity.PictureId.Value.ToString() : "");
+			_writer.Write("PictureId", entity.PictureId.ToString());
 			_writer.Write("PageSize", entity.PageSize.ToString());
 			_writer.Write("AllowCustomersToSelectPageSize", entity.AllowCustomersToSelectPageSize.ToString());
 			_writer.Write("PageSizeOptions", entity.PageSizeOptions);
-			_writer.Write("PriceRanges", entity.PriceRanges);
 			_writer.Write("Published", entity.Published.ToString());
 			_writer.Write("Deleted", entity.Deleted.ToString());
 			_writer.Write("DisplayOrder", entity.DisplayOrder.ToString());
