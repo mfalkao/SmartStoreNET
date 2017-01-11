@@ -70,9 +70,13 @@ namespace SmartStore.Web.Controllers
 			var searchFields = new List<string> { "name", "shortdescription", "tagname" };
 
 			if (_searchSettings.SearchFields.Contains("sku"))
-			{
 				searchFields.Add("sku");
-			}
+
+			if (_searchSettings.SearchFields.Contains("gtin"))
+				searchFields.Add("gtin");
+
+			if (_searchSettings.SearchFields.Contains("mpn"))
+				searchFields.Add("mpn");
 
 			query.Fields = searchFields.ToArray();
 
@@ -185,7 +189,8 @@ namespace SmartStore.Web.Controllers
 			hitGroup.Hits.AddRange(suggestions.Select(x => new SearchResultModel.HitItem
 			{
 				Label = x,
-				Url = Url.RouteUrl("Search", new { q = x })
+				Url = Url.RouteUrl("Search", new { q = x }),
+				NoHighlight = true
 			}));
 
 			model.HitGroups.Add(hitGroup);

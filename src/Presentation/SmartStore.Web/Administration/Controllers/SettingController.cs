@@ -76,6 +76,7 @@ namespace SmartStore.Admin.Controllers
 		private readonly ICommonServices _services;
 		private readonly IProviderManager _providerManager;
 		private readonly PluginMediator _pluginMediator;
+		private readonly IPluginFinder _pluginFinder;
 		private readonly IMediaMover _mediaMover;
 
 		private StoreDependingSettingHelper _storeDependingSettings;
@@ -106,29 +107,31 @@ namespace SmartStore.Admin.Controllers
 			ICommonServices services,
 			IProviderManager providerManager,
 			PluginMediator pluginMediator,
+			IPluginFinder pluginFinder,
 			IMediaMover mediaMover)
         {
-            this._countryService = countryService;
-            this._stateProvinceService = stateProvinceService;
-            this._addressService = addressService;
-            this._taxCategoryService = taxCategoryService;
-            this._pictureService = pictureService;
-            this._dateTimeHelper = dateTimeHelper;
-            this._orderService = orderService;
-            this._encryptionService = encryptionService;
-            this._themeRegistry = themeRegistry;
-            this._customerService = customerService;
-            this._customerActivityService = customerActivityService;
-            this._fulltextService = fulltextService;
-            this._maintenanceService = maintenanceService;
-			this._genericAttributeService = genericAttributeService;
-			this._localizedEntityService = localizedEntityService;
-			this._languageService = languageService;
-			this._deliveryTimesService = deliveryTimesService;
-			this._services = services;
-			this._providerManager = providerManager;
-			this._pluginMediator = pluginMediator;
-			this._mediaMover = mediaMover;
+            _countryService = countryService;
+            _stateProvinceService = stateProvinceService;
+            _addressService = addressService;
+            _taxCategoryService = taxCategoryService;
+            _pictureService = pictureService;
+            _dateTimeHelper = dateTimeHelper;
+            _orderService = orderService;
+            _encryptionService = encryptionService;
+            _themeRegistry = themeRegistry;
+            _customerService = customerService;
+            _customerActivityService = customerActivityService;
+            _fulltextService = fulltextService;
+            _maintenanceService = maintenanceService;
+			_genericAttributeService = genericAttributeService;
+			_localizedEntityService = localizedEntityService;
+			_languageService = languageService;
+			_deliveryTimesService = deliveryTimesService;
+			_services = services;
+			_providerManager = providerManager;
+			_pluginMediator = pluginMediator;
+			_pluginFinder = pluginFinder;
+			_mediaMover = mediaMover;
         }
 
 		#endregion
@@ -580,7 +583,7 @@ namespace SmartStore.Admin.Controllers
 			var deliveryTimes = _deliveryTimesService.GetAllDeliveryTimes();
 			foreach (var dt in deliveryTimes)
 			{
-				model.AvailableDeliveryTimes.Add(new SelectListItem()
+				model.AvailableDeliveryTimes.Add(new SelectListItem
 				{
 					Text = dt.Name,
 					Value = dt.Id.ToString(),
@@ -597,7 +600,7 @@ namespace SmartStore.Admin.Controllers
             if (!_services.Permissions.Authorize(StandardPermissionProvider.ManageSettings))
                 return AccessDeniedView();
 
-			//load settings for a chosen store scope
+			// Load settings for a chosen store scope
 			var storeScope = this.GetActiveStoreScopeConfiguration(_services.StoreService, _services.WorkContext);
 			var catalogSettings = _services.Settings.LoadSetting<CatalogSettings>(storeScope);
 			catalogSettings = model.ToEntity(catalogSettings);
@@ -1587,6 +1590,7 @@ namespace SmartStore.Admin.Controllers
 
 			var storeScope = this.GetActiveStoreScopeConfiguration(Services.StoreService, Services.WorkContext);
 			var settings = Services.Settings.LoadSetting<SearchSettings>(storeScope);
+			var megaSearchDescriptor = _pluginFinder.GetPluginDescriptorBySystemName("SmartStore.MegaSearch");
 
 			var model = new SearchSettingsModel();
 			model.SearchMode = settings.SearchMode;
@@ -1596,18 +1600,21 @@ namespace SmartStore.Admin.Controllers
 			model.InstantSearchTermMinLength = settings.InstantSearchTermMinLength;
 			model.ShowProductImagesInInstantSearch = settings.ShowProductImagesInInstantSearch;
 
-			model.GlobalFilters = XmlHelper.Deserialize<List<SearchFilterDescriptor>>(settings.GlobalFilters);
-
-			// set default global filters
-			if (model.GlobalFilters == null || !model.GlobalFilters.Any())
+			if (megaSearchDescriptor == null)
 			{
-				model.GlobalFilters = new List<SearchFilterDescriptor>
+				model.SearchFieldsNote = T("Admin.Configuration.Settings.Search.SearchFieldsNote");
+			}
+
+			model.GlobalFilters = XmlHelper.Deserialize<List<SearchFilterDescriptor>>(settings.GlobalFilters) ?? new List<SearchFilterDescriptor>();
+
+			// add missing global filter
+			var displayOrder = (model.GlobalFilters.Any() ? model.GlobalFilters.Max(x => x.DisplayOrder) : 0);
+			foreach (var fieldName in new string[] { "manufacturer", "rate", "price", "availability", "delivery" })
+			{
+				if (!model.GlobalFilters.Any(x => x.FieldName == fieldName))
 				{
-					new SearchFilterDescriptor { Enabled = true, DisplayOrder = 1, FieldName = "manufacturer" },
-					new SearchFilterDescriptor { Enabled = true, DisplayOrder = 2, FieldName = "rate" },
-					new SearchFilterDescriptor { Enabled = true, DisplayOrder = 3, FieldName = "price" },
-					new SearchFilterDescriptor { Enabled = true, DisplayOrder = 4, FieldName = "availability" }
-				};
+					model.GlobalFilters.Add(new SearchFilterDescriptor { Enabled = true, DisplayOrder = ++displayOrder, FieldName = fieldName });
+				}
 			}
 
 			// set friendly names for global filters
@@ -1627,6 +1634,9 @@ namespace SmartStore.Admin.Controllers
 					case "availability":
 						filter.FriendlyName = T("Products.Availability");
 						break;
+					case "delivery":
+						filter.FriendlyName = T("Admin.Catalog.Products.Fields.DeliveryTime");
+						break;
 				}
 			}
 
@@ -1637,9 +1647,11 @@ namespace SmartStore.Admin.Controllers
 				new SelectListItem { Text = T("Admin.Catalog.Products.Fields.ShortDescription"), Value = "shortdescription" },
 				new SelectListItem { Text = T("Admin.Catalog.Products.Fields.FullDescription"), Value = "fulldescription" },
 				new SelectListItem { Text = T("Admin.Catalog.Products.Fields.ProductTags"), Value = "tagname" },
-				new SelectListItem { Text = T("Admin.Catalog.Products.Fields.Sku"), Value = "sku" },
 				new SelectListItem { Text = T("Admin.Catalog.Manufacturers"), Value = "manufacturer" },
-				new SelectListItem { Text = T("Admin.Catalog.Categories"), Value = "category" }
+				new SelectListItem { Text = T("Admin.Catalog.Categories"), Value = "category" },
+				new SelectListItem { Text = T("Admin.Catalog.Products.Fields.Sku"), Value = "sku" },
+				new SelectListItem { Text = T("Admin.Catalog.Products.Fields.GTIN"), Value = "gtin" },
+				new SelectListItem { Text = T("Admin.Catalog.Products.Fields.ManufacturerPartNumber"), Value = "mpn" }
 			};
 
 			StoreDependingSettings.GetOverrideKeys(settings, model, storeScope, Services.Settings);

@@ -75,7 +75,10 @@ namespace SmartStore.Admin.Models.Settings
 		[SmartResourceDisplayName("Admin.Configuration.Settings.Catalog.HideManufacturerDefaultPictures")]
 		public bool HideManufacturerDefaultPictures { get; set; }
 
-		[SmartResourceDisplayName("Admin.Configuration.Settings.Catalog.HideCategoryDefaultPictures")]
+        [SmartResourceDisplayName("Admin.Configuration.Settings.Catalog.SortManufacturersAlphabetically")]
+        public bool SortManufacturersAlphabetically { get; set; }
+
+        [SmartResourceDisplayName("Admin.Configuration.Settings.Catalog.HideCategoryDefaultPictures")]
 		public bool HideCategoryDefaultPictures { get; set; }
 
 		[SmartResourceDisplayName("Admin.Configuration.Settings.Catalog.HideProductDefaultPictures")]
@@ -147,6 +150,9 @@ namespace SmartStore.Admin.Models.Settings
 		public PriceDisplayType PriceDisplayType { get; set; }
 		public SelectList AvailablePriceDisplayTypes { get; set; }
 
+		[SmartResourceDisplayName("Admin.Configuration.Settings.Catalog.GridStyleListColumnSpan")]
+		public GridColumnSpan GridStyleListColumnSpan { get; set; }
+
 		#endregion
 
 		#region Products
@@ -156,6 +162,9 @@ namespace SmartStore.Admin.Models.Settings
 
 		[SmartResourceDisplayName("Admin.Configuration.Settings.Catalog.ShowManufacturerInGridStyleLists")]
 		public bool ShowManufacturerInGridStyleLists { get; set; }
+
+		[SmartResourceDisplayName("Admin.Configuration.Settings.Catalog.ShowManufacturerLogoInLists")]
+		public bool ShowManufacturerLogoInLists { get; set; }
 
 		[SmartResourceDisplayName("Admin.Configuration.Settings.Catalog.ShowProductOptionsInLists")]
 		public bool ShowProductOptionsInLists { get; set; }

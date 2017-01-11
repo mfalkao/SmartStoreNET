@@ -106,19 +106,30 @@
 
                         // if correct dropdown is already open then don't open it again
                         var openedMenuSelector = $(".nav-item.active .nav-link").data("target");
+                        var isActive = navElems.is(".active");
 
-                        if ($(this).hasClass("nav-item")) {
+                        if ($(this).hasClass("nav-item") && openedMenuSelector != link.data("target")) {
                             closeNow($(".nav-item.active .nav-link"));
-                            
                         }
                         else if (openedMenuSelector == link.data("target")) {
                             clearTimeout(closingTimeout);
                             return;
                         }
 
-                        tryOpen(link);
+                        // if one menu is already open, it means the user is currently using the menu, so either ...
+                        if (isActive) {
+                            // ... open at once 
+                            tryOpen(link);
+                        }
+                        else {
+                            // ... or open delayed
+                            openTimeout = setTimeout(function () { tryOpen(link); }, 300);
+                        }
                     })
                     .on("mouseleave", function () {
+
+                        clearTimeout(openTimeout);
+
                         var link = $(this).find(".nav-link");
                         closeMenuHandler(link);
                     });
@@ -131,9 +142,7 @@
 
                     navElems.on(event, function (e) {
                         var navItem = $(this);
-                        //var opendMenu = $(".dropdown-menu", $(".nav-item.active .nav-link").data("target"));
                         var opendMenu = $($(".nav-item.active .nav-link").data("target")).find(".dropdown-menu");
-
                         var offsetLeft = navItem.offset().left - megamenu.offset().left;
 
                         if (offsetLeft < 0) {
@@ -174,10 +183,10 @@
                     });
 
                     function scrollToNextInvisibleNavItem(backwards) {
-                        // Ermittle den ersten komplett sichtbaren NavItem (von links oder rechts, je nach 'backwards')
+                        // determine the first completely visible nav item (either from left or right side, depending on 'backwards')
                         var firstVisible = findFirstVisibleNavItem(backwards);
 
-                        // Je nach 'backwards': nimm nächsten oder vorherigen Item (dieser ist ja unsichtbar und da soll jetzt hingescrollt werden)
+                        // depending on 'backwards': take next or previous nav item (it's not visible yet and should scroll into the visible area now)  
                         var nextItem = backwards
 							? firstVisible.prev()
 							: firstVisible.next();
@@ -185,22 +194,22 @@
                         if (nextItem.length == 0)
                             return;
 
-                        // Linke Pos des Items ermitteln
+                        // determine left pos of the item 
                         var leftPos = nextItem.position().left;
 
-                        // 30 = offset für Pfeile
-                        // Wenn 'backwards == true': zur linken Pos des Items scrollen
+                        // 30 = offset for arrows
+                        // if 'backwards == true': scroll to the left position of the current item 
                         var newMarginLeft = (leftPos * -1) + 1 + 30;
                         if (!backwards) {
-                            // Wenn 'backwards == true': zur rechten Pos des Items scrollen
+                            // if 'backwards == true': scroll to the right position of the current item 
                             var rightPos = leftPos + nextItem.outerWidth(true) + 1;
                             newMarginLeft = navSlider.width() - rightPos - (nextItem[0].nextElementSibling ? 30 : 0);
                         }
 
                         newMarginLeft = Math.min(0, newMarginLeft);
 
-                        nav.css('margin-left', newMarginLeft + 'px').one("transitionend webkitTransitionEnd", function (e) {
-                            // Führt UI-Aktualisierung NACH Anim-Ende durch (.one(trans...))
+                        nav.css('margin-left', newMarginLeft + 'px').one($.support.transitionEnd, function (e) {
+                            // performs UI update after end of animation (.one(trans...))
                             updateNavState();
                         });
                     }
@@ -208,7 +217,7 @@
                     function findFirstVisibleNavItem(fromLeft) {
                         var navItems = navElems;
                         if (!fromLeft) {
-                            // NavItems umdrehen, da wir die Iteration von rechts starten
+                            // turn nav items around as we start iteration from the right side
                             navItems = $($.makeArray(navElems).reverse());
                         }
 
@@ -222,8 +231,8 @@
                         }
 
                         navItems.each(function (i, el) {
-                            // Durchläuft alle NavItems von links ODER rechts und steigt aus,
-                            // sobald die linke UND rechte Kante des Items im sichtbaren Bereich liegen.
+
+                            // iterates all nav items from the left OR the right side and leaves the intartion once the left AND the right edge are displayed within the viewpoint
                             var navItem = $(el);
                             var leftPos = navItem.position().left;
                             var leftIn = isInView(leftPos);
@@ -240,22 +249,22 @@
                     }
 
                     function updateNavState() {
-                        // Aktualisiert Megamenü-Status: Arrows etc.
+                        // updates megamenu status: arrows etc.
                         var realNavWidth = 0;
                         navElems.each(function (i, el) { realNavWidth += parseFloat($(this).outerWidth(true)); });
 
                         var curMarginLeft = parseFloat(nav.css('margin-left'));
 
                         if (realNavWidth > megamenu.width()) {
-                            // NavItems passen nicht in Megamnü-Container: NextArrow anzeigen.
+                            // nav items don't fit in the megamenu container: display next arrow 
                             megamenu.addClass('megamenu-blend--next');
                         }
 
                         if (curMarginLeft < 0) {
-                            // Es wurde nach rechts gescrollt: PrevArrow anzeigen.
+                            // user has scrolled to the right: show prev arrow 
                             megamenu.addClass('megamenu-blend--prev');
 
-                            // Ermitteln, ob wir am Ende sind
+                            // determine whether we're at the end
                             var endReached = nav.width() >= realNavWidth;
                             if (endReached)
                                 megamenu.removeClass('megamenu-blend--next')
@@ -263,7 +272,7 @@
                                 megamenu.addClass('megamenu-blend--next');
                         }
                         else {
-                            // Wir sind am Anfang: PrevArrow ausblenden.
+                            // we're at the beginning: fade out prev arrow
                             megamenu.removeClass('megamenu-blend--prev');
                         }
                     }
@@ -312,14 +321,6 @@
 
                     	getCurrentNavigationElements();
 
-                    	// ReInit slick
-                    	// TODO: (mc) > (mh) Das ist nur temporär und läuft nicht richtig.
-                    	//		Slick geht bei PageResize kaputt und muss nach dem Öffnen neu initialisert werden (hat mit Sichtbarkeit zu tun).
-						//		Am besten HTML komplett entfernen und beim nächsten Öffnen reinitialisieren.
-                    	// TODO: (mc) > (mh) Rotator komplett weg, wenn 0 Produkte.
-                    	// TODO: (mc) > (mh) Dropdown-MinHeight fehlt, wurde nicht implementiert!
-                    	// TODO: (mc) > (mh) "Maximale Anzahl von Unterwarengruppen pro Warengruppe" zeigt More-Link an, obwohl alles genau passt.
-                    	// TODO: (mc) > (mh) MM-Hintergrundbild lässt sich nicht ausrichten.
                     	megamenuDropdownContainer.find('.mega-menu-product-rotator > .artlist-grid').each(function(i, el) {
                     		try {
                     			$(this).slick('unslick');
@@ -389,13 +390,19 @@
                     var catId = container.data("entity-id");
                     var displayRotator = container.data("display-rotator");
 
+                    // reinit slick product rotator
+                    container.find('.mega-menu-product-rotator > .artlist-grid').each(function (i, el) {
+                        try {
+                            $(this).slick('unslick');
+                            applyCommonPlugins($(this).closest('.rotator-content'));
+                        }
+                        catch (err) { }
+                    });
+
                     //if ($(".pl-slider", container).length == 0 && catId != null && displayRotator) {
                     if (catId != null && displayRotator) {
 
                         var rotatorColumn = $(".rotator-" + catId);
-
-                        // init throbber
-                        //rotatorColumn.find(".rotator-content").throbber({ white: true, small: true, message: '' });
 
                         // clear content & init throbber
                         rotatorColumn.find(".rotator-content")

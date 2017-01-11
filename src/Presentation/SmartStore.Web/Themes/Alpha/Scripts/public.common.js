@@ -25,17 +25,17 @@
     var _commonPluginFactories = [
         // select2
         function (ctx) {
-            if (!Modernizr.touch) {
+        	if (!Modernizr.touchevents) {
                 if ($.fn.select2 === undefined || $.fn.selectWrapper === undefined)
                     return;
-                //ctx.find("select:not(.noskin), input:hidden[data-select]").selectWrapper();
+                ctx.find("select:not(.noskin), input:hidden[data-select]").selectWrapper();
             }
         },
         // tooltips
         function (ctx) {
             if ($.fn.tooltip === undefined)
                 return;
-            if (!Modernizr.touch) {
+            if (!Modernizr.touchevents) {
                 ctx.tooltip({ selector: '[data-toggle="tooltip"], .tooltip-toggle', container: 'body' });
             }
         },
@@ -46,13 +46,6 @@
 
         	ctx.find('.artlist-carousel > .artlist-grid').each(function (i, el) {
         		var list = $(this);
-
-        		var slickData = list.parent().data('slick');
-        		
-        		if (slickData && list.data('slick') == undefined) {
-        			list.data('slick', slickData);
-        			console.log(list.data('slick'));
-        		}
 
         		list.slick({
         			infinite: false,
@@ -114,7 +107,7 @@
 
             // intercept window.alert with pnotify
             window.alert = function (message) {
-                if (message == null || message.length <= 0)
+                if (message === null || message.length <= 0)
                     return;
 
                 $.pnotify({
@@ -137,13 +130,21 @@
 
         // Notify subscribers about page/content width change
         if (window.EventBroker) {
-        	$(window).resize(
-				viewport.changed(function () {
-					var tier = viewport.current();
-					console.debug("Grid tier changed: " + tier);
-					EventBroker.publish("page.resized", viewport);
-				}, 100)
-			);
+        	var currentContentWidth = $('#content').width();
+        	$(window).on('resize', function () {
+        		var contentWidth = $('#content').width();
+        		if (contentWidth !== currentContentWidth) {
+        			currentContentWidth = contentWidth;
+        			console.debug("Grid tier changed: " + viewport.current());
+        			EventBroker.publish("page.resized", viewport);
+        		}
+        	});
+
+        	//$(window).resize(
+			//	viewport.changed(function () {
+
+			//	}, 50)
+			//);
         }
         
         applyCommonPlugins($("body"));

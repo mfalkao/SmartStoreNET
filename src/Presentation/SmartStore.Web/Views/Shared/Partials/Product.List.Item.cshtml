@@ -18,7 +18,7 @@
 	<div class="art-picture-block">
 		@if (picture.Title.HasValue())
 		{
-			<a class="art-picture" href="@artDetailUrl" title="@picture.Title">
+			<a class="art-picture img-center-container" href="@artDetailUrl" title="@picture.Title">
 				<img src="@picture.ImageUrl" alt="@picture.AlternateText" title="@picture.Title" />
 			</a>
 		}
@@ -64,7 +64,6 @@
 			@if (list.ShowDescription)
 			{
 				<div class="art-description" title="@Model.ShortDescription">
-					@* TODO: (mc) Only render description block when merchant wishes so and only when at least one description is specified *@
 					@Html.Raw(Model.ShortDescription.Truncate(160, "..."))
 				</div>
 			}

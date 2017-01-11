@@ -159,26 +159,6 @@ $art-active-border-color:       rgba(0,0,0, 0.2);
     overflow: hidden;
 }
 
-.art-picture {
-    display: block;
-    position: relative;
-    height: 0;
-    width: 100%;
-    padding-top: 100%;
-    text-decoration: none !important;
-
-    > img {
-        position: absolute;
-        max-width: 100%;
-        max-height: 100%;
-        left: 0;
-        top: 0;
-        right: 0;
-        bottom: 0;
-        margin: auto;
-    }
-}
-
 .art-badges {
     position: absolute;
     left: 0;
@@ -429,6 +409,7 @@ $art-active-border-color:       rgba(0,0,0, 0.2);
 
     .floating > .art-brand {
         padding-right: 90px; // ratings width + 10px
+        min-height: 20px; // Height of rating widget
     }
 
     .floating > .art-rating {

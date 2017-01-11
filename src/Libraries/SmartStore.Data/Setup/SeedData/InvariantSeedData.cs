@@ -6619,13 +6619,13 @@ namespace SmartStore.Data.Setup
 		{
 			#region definitions
 
-			//pictures
+			// Pictures
 			var sampleImagesPath = this._sampleImagesPath;
 
-			//downloads
+			// Downloads
 			var sampleDownloadsPath = this._sampleDownloadsPath;
 
-			//templates
+			// Templates
 			var productTemplateSimple = _ctx.Set<ProductTemplate>().First(x => x.ViewPath == "ProductTemplate.Simple");
 			var productTemplateGrouped = _ctx.Set<ProductTemplate>().First(x => x.ViewPath == "ProductTemplate.Grouped");
 

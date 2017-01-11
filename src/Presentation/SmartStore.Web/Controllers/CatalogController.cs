@@ -271,12 +271,12 @@ namespace SmartStore.Web.Controllers
 		[ChildActionOnly]
 		public ActionResult ProductBreadcrumb(int productId)
 		{
+			if (!_catalogSettings.CategoryBreadcrumbEnabled)
+				return Content("");
+
 			var product = _productService.GetProductById(productId);
 			if (product == null)
 				throw new ArgumentException(T("Products.NotFound", productId));
-
-			if (!_catalogSettings.CategoryBreadcrumbEnabled)
-				return Content("");
 
 			var model = new ProductDetailsModel.ProductBreadcrumbModel
 			{
@@ -303,11 +303,12 @@ namespace SmartStore.Web.Controllers
                 {
                     var catModel = x.ToModel();
 
-                    //prepare picture model
+                    // Prepare picture model
                     int pictureSize = _mediaSettings.CategoryThumbPictureSize;
 					var categoryPictureCacheKey = string.Format(ModelCacheEventConsumer.CATEGORY_PICTURE_MODEL_KEY, x.Id, pictureSize, true, 
 						_services.WorkContext.WorkingLanguage.Id, 
 						_services.StoreContext.CurrentStore.Id);
+
                     catModel.PictureModel = _services.Cache.Get(categoryPictureCacheKey, () =>
                     {
                         var pictureModel = new PictureModel
