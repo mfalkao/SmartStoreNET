@@ -1,11 +1,8 @@
-﻿@model ProductModel.ProductVariantAttributeValueListModel
-
-@using Telerik.Web.Mvc.UI;
+﻿@using Telerik.Web.Mvc.UI;
 @using SmartStore.Web.Framework.UI;
 @using SmartStore.Admin.Extensions;
-
+@model ProductModel.ProductVariantAttributeValueListModel
 @{    
-    //page title
     ViewBag.Title = string.Format(T("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.EditAttributeDetails").Text, Model.ProductVariantAttributeName, Model.ProductName);
 }
 @using (Html.BeginForm(null, null, FormMethod.Post, new { id = "productvariantattribute-form" }))
@@ -22,79 +19,116 @@
     <tr>
         <td>
             @(Html.Telerik().Grid<ProductModel.ProductVariantAttributeValueModel>()
-                            .Name("pvav-grid")
-                            .DataKeys(x =>
-                            {
-                                x.Add(y => y.Id).RouteKey("pvavId");
-                                x.Add(y => y.ProductVariantAttributeId).RouteKey("productVariantAttributeId");
-                            })
-                            .Columns(columns =>
-                            {
-								columns.Bound(x => x.Name)
-									.ReadOnly()
-									.Template(x => @Html.VariantAttributeValueName(x))
-									.ClientTemplate(@Html.VariantAttributeValueName());
-								columns.Bound(x => x.Alias);
-								columns.Bound(x => x.LinkedProductName)
-									.ReadOnly()
-									.Template(x => @Html.LabeledProductName(x.LinkedProductId, x.LinkedProductName, x.LinkedProductTypeName, x.LinkedProductTypeLabelHint))
-									.ClientTemplate(@Html.LabeledProductName("LinkedProductId", "LinkedProductName", "LinkedProductTypeName", "LinkedProductTypeLabelHint"));
-                                columns.Bound(x => x.PriceAdjustmentString)
-                                    .Width(80)
-                                    .Centered();
-                                columns.Bound(x => x.WeightAdjustmentString)
-                                    .Width(80)
-                                    .Centered();
-                                columns.Bound(x => x.IsPreSelected)
-                                    .Width(80)
-                                    .Template(item => @Html.SymbolForBool(item.IsPreSelected))
-                                    .ClientTemplate(@Html.SymbolForBool("IsPreSelected"))
-                                    .Centered();
-                                columns.Bound(x => x.DisplayOrder)
-                                    .Width(80)
-                                    .Centered();
-                                columns.Bound(x => x.Id)
-                                    .Width(50)
-                                    .Centered()
-                                    .ClientTemplate("<input type='submit' value='" + @T("Admin.Common.Edit").Text + "' onclick=\"" + "javascript:OpenWindow('" + @Url.Content("~/Admin/Product/ProductAttributeValueEditPopup/") + "<#= Id #>?btnId=btnRefresh&formId=productvariantattribute-form', 1000, 600, true); return false;\" class='t-button' />")
-                                    .Title(T("Admin.Common.Edit").Text);
-                                columns.Command(commands =>
-                                {
-                                    commands.Delete().Localize(T);
-                                })
-                                .Width(50)
-                                .Title(T("Admin.Common.Delete").Text);
-                            })
-                            .DataBinding(dataBinding =>
-                                dataBinding.Ajax()
-                                .Select("ProductAttributeValueList", "Product", new { productVariantAttributeId = Model.ProductVariantAttributeId })
-                                .Delete("ProductAttributeValueDelete", "Product"))
-                            .EnableCustomBinding(true))
+				.Name("pvav-grid")
+				.DataKeys(x =>
+				{
+					x.Add(y => y.Id).RouteKey("pvavId");
+					x.Add(y => y.ProductVariantAttributeId).RouteKey("productVariantAttributeId");
+				})
+				.Columns(columns =>
+				{
+					columns.Bound(x => x.Name)
+						.ReadOnly()
+						.ClientTemplate(@Html.VariantAttributeValueName());
+					columns.Bound(x => x.Alias);
+					columns.Bound(x => x.LinkedProductName)
+						.ReadOnly()
+						.ClientTemplate(@Html.LabeledProductName("LinkedProductId", "LinkedProductName", "LinkedProductTypeName", "LinkedProductTypeLabelHint"));
+					columns.Bound(x => x.PriceAdjustmentString)
+						.Width(80)
+						.Centered();
+					columns.Bound(x => x.WeightAdjustmentString)
+						.Width(80)
+						.Centered();
+					columns.Bound(x => x.IsPreSelected)
+						.Width(80)
+						.ClientTemplate(@Html.SymbolForBool("IsPreSelected"))
+						.Centered();
+					columns.Bound(x => x.DisplayOrder)
+						.Width(80)
+						.Centered();
+					columns.Bound(x => x.Id)
+						.Width(50)
+						.Centered()
+						.ClientTemplate("<input type='submit' value='" + @T("Admin.Common.Edit").Text + "' onclick=\"" + "javascript:openPopup('" + @Url.Content("~/Admin/Product/ProductAttributeValueEditPopup/") + "<#= Id #>?btnId=btnRefresh&formId=productvariantattribute-form'); return false;\" class='t-button' />")
+						.Title(T("Admin.Common.Edit").Text);
+					columns.Command(commands =>
+					{
+						commands.Delete().Localize(T);
+					})
+					.Width(50)
+					.Title(T("Admin.Common.Delete").Text);
+				})
+				.DataBinding(dataBinding => dataBinding.Ajax()
+					.Select("ProductAttributeValueList", "Product", new { productVariantAttributeId = Model.ProductVariantAttributeId })
+					.Delete("ProductAttributeValueDelete", "Product"))
+				.EnableCustomBinding(true))
         </td>
     </tr>
     <tr>
         <td>
             <button class="btn btn-warning btn-primary btn-below" type="submit" id="btnAddNewValue" name="btnAddNewValue" value="btnAddNewValue" 
-				onclick="javascript:OpenWindow('@(Url.Action("ProductAttributeValueCreatePopup", "Product", new { productAttributeAttributeId = Model.ProductVariantAttributeId, btnId = "btnRefresh", formId = "productvariantattribute-form" }))', 1000, 600, true); return false;">
+				onclick="javascript:openPopup('@(Url.Action("ProductAttributeValueCreatePopup", "Product", new { productVariantAttributeId = Model.ProductVariantAttributeId, btnId = "btnRefresh", formId = "productvariantattribute-form" }))'); return false;">
                 <i class="fa fa-plus"></i>
                 @T("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.AddNew")
             </button>
+			<button type="button" class="btn btn-below" data-toggle="modal" data-target="#CopyOptionsModal">
+				<i class="fa fa-copy"></i>
+				@T("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.CopyOptions")
+			</button>
 
             <button type="submit" id="btnRefresh" name="btnRefresh" value="btnRefresh" class="hide" />
 
             <script type="text/javascript">
-                $(document).ready(function () {
-                    $('#btnRefresh').click(function () {
-                        //refresh grid
-                        var optionsGrid = $("#pvav-grid");
-                        optionsGrid.data('tGrid').ajaxRequest();
+				$(document).ready(function () {
 
-                        //return false to don't reload a page
+                    $('#btnRefresh').click(function () {
+                        // refresh grid
+                        $('#pvav-grid').data('tGrid').ajaxRequest();
+                        // return false to don't reload a page
                         return false;
                     });
+
+					// copy attribute options
+                    $('#btnCopyAttributeOptions').click(function () {
+                    	$('#CopyOptionsForm').doAjax({
+                    		type: 'POST',
+                    		callbackSuccess: function () {
+                    			$('#pvav-grid').data('tGrid').ajaxRequest();
+                    		}
+                    	});
+                    });
+
                 });
             </script>
         </td>
     </tr>
 </table>
 }
+
+<div id="CopyOptionsModal" class="modal hide fade" tabindex="-1">
+	<div class="modal-header">
+		<button type="button" class="close" data-dismiss="modal"><b>&#215;</b></button>
+		<h4 class="caption">@T("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.CopyOptions")</h4>
+	</div>
+	<div class="modal-body">
+
+		<form id="CopyOptionsForm" method="POST" action="@Url.Action("CopyAttributeOptions", "Product")">
+			<input type="hidden" name="productVariantAttributeId" value="@Model.ProductVariantAttributeId" />
+
+			<p>@T("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.CopyOptionsHint", Model.ProductVariantAttributeName)</p>
+
+			<div class="clearfix">
+				<label for="deleteExistingValues" class="checkbox pull-left">
+					@Html.CheckBox("deleteExistingValues", false)
+					@T("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.DeleteExistingValues")
+				</label>
+			</div>
+		</form>
+
+	</div>
+	<div class="modal-footer">
+		<button id="btnCopyAttributeOptions" class="btn btn-primary" data-dismiss="modal">@T("Common.OK")</button>
+		<button class="btn" data-dismiss="modal">@T("Common.Cancel")</button>
+	</div>
+</div>

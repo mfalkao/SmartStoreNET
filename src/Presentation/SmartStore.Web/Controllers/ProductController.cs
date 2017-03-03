@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Dynamic;
 using System.Linq;
 using System.Web.Mvc;
 using System.Web.Routing;
@@ -234,20 +235,21 @@ namespace SmartStore.Web.Controllers
 		}
 
 		[ChildActionOnly]
-		public ActionResult ReviewOverview(int id)
+		public ActionResult ReviewSummary(int id /* productId */)
 		{
 			var product = _productService.GetProductById(id);
 			if (product == null)
 				throw new ArgumentException(T("Products.NotFound", id));
 
-			var model = new ProductReviewOverviewModel()
+			var model = new ProductReviewOverviewModel
 			{
 				ProductId = product.Id,
 				RatingSum = product.ApprovedRatingSum,
 				TotalReviews = product.ApprovedTotalReviews,
 				AllowCustomerReviews = product.AllowCustomerReviews
 			};
-			return PartialView(model);
+
+			return PartialView("Product.ReviewSummary", model);
 		}
 
 		[ChildActionOnly]
@@ -255,14 +257,18 @@ namespace SmartStore.Web.Controllers
 		{
 			var product = _productService.GetProductById(productId);
 			if (product == null)
+			{
 				throw new ArgumentException(T("Products.NotFound", productId));
+			}			
 
 			var model = _helper.PrepareProductSpecificationModel(product);
 
 			if (model.Count == 0)
+			{
 				return Content("");
+			}		
 
-			return PartialView(model);
+			return PartialView("Product.Specs", model);
 		}
 
 		[ChildActionOnly]
@@ -270,27 +276,37 @@ namespace SmartStore.Web.Controllers
 		{
 			var product = _productService.GetProductById(productId);
 			if (product == null || !product.AllowCustomerReviews)
+			{
 				return Content("");
-
+			}
+				
 			var model = new ProductReviewsModel();
-			_helper.PrepareProductReviewsModel(model, product);
+			_helper.PrepareProductReviewsModel(model, product, 10);
 
-			return PartialView(model);
+			return PartialView("Product.Reviews", model);
 		}
 
 		[ChildActionOnly]
 		public ActionResult ProductTierPrices(int productId)
 		{
 			if (!_services.Permissions.Authorize(StandardPermissionProvider.DisplayPrices))
-				return Content(""); //hide prices
+			{
+				return Content("");
+			}	
 
 			var product = _productService.GetProductById(productId);
 			if (product == null)
+			{
 				throw new ArgumentException(T("Products.NotFound", productId));
+			}
+				
 
 			if (!product.HasTierPrices)
-				return Content(""); //no tier prices
-
+			{
+				// No tier prices
+				return Content(""); 
+			}
+				
 			var model = product.TierPrices
 				.OrderBy(x => x.Quantity)
 				.FilterByStore(_services.StoreContext.CurrentStore.Id)
@@ -299,7 +315,7 @@ namespace SmartStore.Web.Controllers
 				.RemoveDuplicatedQuantities()
 				.Select(tierPrice =>
 				{
-					var m = new ProductDetailsModel.TierPriceModel()
+					var m = new ProductDetailsModel.TierPriceModel
 					{
 						Quantity = tierPrice.Quantity,
 					};
@@ -311,7 +327,7 @@ namespace SmartStore.Web.Controllers
 				})
 				.ToList();
 
-			return PartialView(model);
+			return PartialView("Product.TierPrices", model);
 		}
 
 		[ChildActionOnly]
@@ -341,7 +357,7 @@ namespace SmartStore.Web.Controllers
 			var model = _helper.MapProductSummaryModel(products, settings);
 			model.ShowBasePrice = false;
 
-			return PartialView(model);
+			return PartialView("Product.RelatedProducts", model);
 		}
 
 		[ChildActionOnly]
@@ -377,25 +393,7 @@ namespace SmartStore.Web.Controllers
 
 			var model = _helper.MapProductSummaryModel(products, settings);
 
-			return PartialView(model);
-		}
-
-		[ChildActionOnly]
-		public ActionResult ShareButton()
-		{
-			if (_catalogSettings.ShowShareButton && !String.IsNullOrEmpty(_catalogSettings.PageShareCode))
-			{
-				var shareCode = _catalogSettings.PageShareCode;
-				if (_services.WebHelper.IsCurrentConnectionSecured())
-				{
-					//need to change the addthis link to be https linked when the page is, so that the page doesnt ask about mixed mode when viewed in https...
-					shareCode = shareCode.Replace("http://", "https://");
-				}
-
-				return PartialView("ShareButton", shareCode);
-			}
-
-			return Content("");
+			return PartialView("Product.AlsoPurchased", model);
 		}
 
 		[ChildActionOnly]
@@ -552,7 +550,7 @@ namespace SmartStore.Web.Controllers
 			// get merged model data
 			_helper.PrepareProductDetailModel(m, product, isAssociated, bundleItem, bundleItems, form, quantity);
 
-			if (bundleItem != null)	// update bundle item thumbnail
+			if (bundleItem != null) // update bundle item thumbnail
 			{
 				if (!bundleItem.Item.HideThumbnail)
 				{
@@ -565,101 +563,61 @@ namespace SmartStore.Web.Controllers
 				var picture = m.GetAssignedPicture(_pictureService, null, productId);
 				dynamicThumbUrl = _pictureService.GetPictureUrl(picture, _mediaSettings.AssociatedProductPictureSize, false);
 			}
-			else if (product.ProductType != ProductType.BundledProduct)		// update image gallery
+			else if (product.ProductType != ProductType.BundledProduct)     // update image gallery
 			{
 				var pictures = _pictureService.GetPicturesByProductId(productId);
 
-				if (pictures.Count <= _catalogSettings.DisplayAllImagesNumber)	// all pictures rendered... only index is required
+				if (pictures.Count <= _catalogSettings.DisplayAllImagesNumber)  // all pictures rendered... only index is required
 				{
 					var picture = m.GetAssignedPicture(_pictureService, pictures);
 					galleryStartIndex = (picture == null ? 0 : pictures.IndexOf(picture));
 				}
 				else
 				{
-					var allCombinationPictureIds = _productAttributeService.GetAllProductVariantAttributeCombinationPictureIds(product.Id);	
+					var allCombinationPictureIds = _productAttributeService.GetAllProductVariantAttributeCombinationPictureIds(product.Id);
 
 					_helper.PrepareProductDetailsPictureModel(
-						pictureModel, 
-						pictures, 
-						product.GetLocalized(x => x.Name), 
+						pictureModel,
+						pictures,
+						product.GetLocalized(x => x.Name),
 						allCombinationPictureIds,
-						false, 
-						bundleItem, 
+						false,
+						bundleItem,
 						m.SelectedCombination);
 
 					galleryStartIndex = pictureModel.GalleryStartIndex;
-					galleryHtml = this.RenderPartialViewToString("_PictureGallery", pictureModel);
+					galleryHtml = this.RenderPartialViewToString("Product.Picture", pictureModel);
 				}
 			}
- 
-			#region data object
 
-            object data = new
-            {
-                Delivery = new
-                {
-                    Id = 0,
-                    Name = m.DeliveryTimeName,
-                    Color = m.DeliveryTimeHexValue,
-                    DisplayAccordingToStock = m.DisplayDeliveryTimeAccordingToStock
-                },
-                Measure = new
-                {
-                    Weight = new { Value = m.WeightValue, Text = m.Weight },
-                    Height = new { Value = product.Height, Text = m.Height },
-                    Width = new { Value = product.Width, Text = m.Width },
-                    Length = new { Value = product.Length, Text = m.Length }
-                },
-                Number = new
-                {
-                    Sku = new { Value = m.Sku, Show = m.ShowSku },
-                    Gtin = new { Value = m.Gtin, Show = m.ShowGtin },
-                    Mpn = new { Value = m.ManufacturerPartNumber, Show = m.ShowManufacturerPartNumber }
-                },
-                Price = new
-                {
-                    Base = new
-                    {
-                        Enabled = m.IsBasePriceEnabled,
-                        Info = m.BasePriceInfo
-                    },
-                    Old = new
-                    {
-                        Value = decimal.Zero,
-                        Text = m.ProductPrice.OldPrice
-                    },
-                    WithoutDiscount = new
-                    {
-                        Value = m.ProductPrice.PriceValue,
-                        Text = m.ProductPrice.Price
-                    },
-                    WithDiscount = new
-                    {
-                        Value = m.ProductPrice.PriceWithDiscountValue,
-                        Text = m.ProductPrice.PriceWithDiscount
-                    }
-                },
-                Stock = new
-                {
-                    Quantity = new
-					{ 
-                        Value = product.StockQuantity,
-						Show = areAllAttributesForCombinationSelected ? product.DisplayStockQuantity : false
-                    },
-                    Availability = new
-					{ 
-                        Text = m.StockAvailability,
-						Show = areAllAttributesForCombinationSelected ? product.DisplayStockAvailability : false, 
-                        Available = m.IsAvailable
-					}
-                },
+			object partials = null;
+			
+			if (m.IsBundlePart)
+			{
+				partials = new
+				{
+					BundleItemPrice = this.RenderPartialViewToString("Product.Offer.Price", m),
+					BundleItemStock = this.RenderPartialViewToString("Product.StockInfo", m)
+				};
+			}
+			else
+			{
+				partials = new
+				{
+					Attrs = this.RenderPartialViewToString("Product.Attrs", m),
+					Price = this.RenderPartialViewToString("Product.Offer.Price", m),
+					Stock = this.RenderPartialViewToString("Product.StockInfo", m),
+					BundlePrice = product.ProductType == ProductType.BundledProduct ? this.RenderPartialViewToString("Product.Bundle.Price", m) : (string)null
+				};
+			}
 
-                DynamicThumblUrl = dynamicThumbUrl,
-                GalleryStartIndex = galleryStartIndex,
-                GalleryHtml = galleryHtml
-            };
-
-			#endregion
+			object data = new
+			{
+				Partials = partials,
+				DynamicThumblUrl = dynamicThumbUrl,
+				GalleryStartIndex = galleryStartIndex,
+				GalleryHtml = galleryHtml
+			};
 
 			return new JsonResult { Data = data };
 		}
@@ -674,17 +632,19 @@ namespace SmartStore.Web.Controllers
 		{
 			var product = _productService.GetProductById(productId);
 			if (product == null)
+			{
 				throw new ArgumentException(T("Products.NotFound", productId));
+			}				
 
 			var cacheKey = string.Format(ModelCacheEventConsumer.PRODUCTTAG_BY_PRODUCT_MODEL_KEY, product.Id, _services.WorkContext.WorkingLanguage.Id, _services.StoreContext.CurrentStore.Id);
 			var cacheModel = _services.Cache.Get(cacheKey, () =>
 			{
 				var model = product.ProductTags
-					//filter by store
+					// Filter by store
 					.Where(x => _productTagService.GetProductCount(x.Id, _services.StoreContext.CurrentStore.Id) > 0)
 					.Select(x =>
 					{
-						var ptModel = new ProductTagModel()
+						var ptModel = new ProductTagModel
 						{
 							Id = x.Id,
 							Name = x.GetLocalized(y => y.Name),
@@ -697,7 +657,7 @@ namespace SmartStore.Web.Controllers
 				return model;
 			});
 
-			return PartialView(cacheModel);
+			return PartialView("Product.Tags", cacheModel);
 		}
 
 		#endregion
@@ -715,24 +675,29 @@ namespace SmartStore.Web.Controllers
 
 			var model = new ProductReviewsModel();
 			_helper.PrepareProductReviewsModel(model, product);
-			//only registered users can leave reviews
+
+			// only registered users can leave reviews
 			if (_services.WorkContext.CurrentCustomer.IsGuest() && !_catalogSettings.AllowAnonymousUsersToReviewProduct)
+			{
 				ModelState.AddModelError("", T("Reviews.OnlyRegisteredUsersCanWriteReviews"));
-			//default value
-			model.AddProductReview.Rating = _catalogSettings.DefaultProductRatingValue;
+			}
+				
+			// default value
+			model.Rating = _catalogSettings.DefaultProductRatingValue;
 			return View(model);
 		}
 
 		[HttpPost, ActionName("Reviews")]
 		[FormValueRequired("add-review")]
 		[CaptchaValidator]
+		[ValidateAntiForgeryToken]
 		public ActionResult ReviewsAdd(int id, ProductReviewsModel model, bool captchaValid)
 		{
 			var product = _productService.GetProductById(id);
 			if (product == null || product.Deleted || !product.Published || !product.AllowCustomerReviews)
 				return HttpNotFound();
 
-			//validate CAPTCHA
+			// validate CAPTCHA
 			if (_captchaSettings.Enabled && _captchaSettings.ShowOnProductReviewPage && !captchaValid)
 			{
 				ModelState.AddModelError("", T("Common.WrongCaptcha"));
@@ -746,7 +711,7 @@ namespace SmartStore.Web.Controllers
 			if (ModelState.IsValid)
 			{
 				//save review
-				int rating = model.AddProductReview.Rating;
+				int rating = model.Rating;
 				if (rating < 1 || rating > 5)
 					rating = _catalogSettings.DefaultProductRatingValue;
 
@@ -758,8 +723,8 @@ namespace SmartStore.Web.Controllers
 					ProductId = product.Id,
 					CustomerId = customer.Id,
 					IpAddress = _services.WebHelper.GetCurrentIpAddress(),
-					Title = model.AddProductReview.Title,
-					ReviewText = model.AddProductReview.ReviewText,
+					Title = model.Title,
+					ReviewText = model.ReviewText,
 					Rating = rating,
 					HelpfulYesTotal = 0,
 					HelpfulNoTotal = 0,
@@ -767,33 +732,33 @@ namespace SmartStore.Web.Controllers
 				};
 				_customerContentService.InsertCustomerContent(productReview);
 
-				//update product totals
+				// update product totals
 				_productService.UpdateProductReviewTotals(product);
 
-				//notify store owner
+				// notify store owner
 				if (_catalogSettings.NotifyStoreOwnerAboutNewProductReviews)
 					_workflowMessageService.SendProductReviewNotificationMessage(productReview, _localizationSettings.DefaultAdminLanguageId);
 
-				//activity log
+				// activity log
 				_services.CustomerActivity.InsertActivity("PublicStore.AddProductReview", T("ActivityLog.PublicStore.AddProductReview"), product.Name);
 
 				if (isApproved)
 					_customerService.RewardPointsForProductReview(customer, product, true);
 
 				_helper.PrepareProductReviewsModel(model, product);
-				model.AddProductReview.Title = null;
-				model.AddProductReview.ReviewText = null;
+				model.Title = null;
+				model.ReviewText = null;
 
-				model.AddProductReview.SuccessfullyAdded = true;
+				model.SuccessfullyAdded = true;
 				if (!isApproved)
-					model.AddProductReview.Result = T("Reviews.SeeAfterApproving");
+					model.Result = T("Reviews.SeeAfterApproving");
 				else
-					model.AddProductReview.Result = T("Reviews.SuccessfullyAdded");
+					model.Result = T("Reviews.SuccessfullyAdded");
 
 				return View(model);
 			}
 
-			//If we got this far, something failed, redisplay form
+			// If we got this far, something failed, redisplay form
 			_helper.PrepareProductReviewsModel(model, product);
 			return View(model);
 		}
@@ -872,19 +837,6 @@ namespace SmartStore.Web.Controllers
 
 		#region Ask product question
 
-		[ChildActionOnly]
-		public ActionResult AskQuestionButton(int id)
-		{
-			if (!_catalogSettings.AskQuestionEnabled)
-				return Content("");
-			var model = new ProductAskQuestionModel()
-			{
-				Id = id
-			};
-
-			return PartialView(model);
-		}
-
 		[RequireHttpsByConfigAttribute(SslRequirement.No)]
 		public ActionResult AskQuestion(int id)
 		{
@@ -957,19 +909,6 @@ namespace SmartStore.Web.Controllers
 
 
 		#region Email a friend
-
-		[ChildActionOnly]
-		public ActionResult EmailAFriendButton(int id)
-		{
-			if (!_catalogSettings.EmailAFriendEnabled)
-				return Content("");
-			var model = new ProductEmailAFriendModel()
-			{
-				ProductId = id
-			};
-
-			return PartialView(model);
-		}
 
 		[RequireHttpsByConfigAttribute(SslRequirement.No)]
 		public ActionResult EmailAFriend(int id)

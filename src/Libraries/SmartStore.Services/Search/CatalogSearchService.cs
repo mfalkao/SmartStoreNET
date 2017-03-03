@@ -6,6 +6,7 @@ using SmartStore.Core.Domain.Catalog;
 using SmartStore.Core.Events;
 using SmartStore.Core.Logging;
 using SmartStore.Core.Search;
+using SmartStore.Core.Search.Facets;
 using SmartStore.Services.Catalog;
 
 namespace SmartStore.Services.Search
@@ -68,6 +69,7 @@ namespace SmartStore.Services.Search
 						string[] spellCheckerSuggestions = null;
 						IEnumerable<ISearchHit> searchHits;
 						Func<IList<Product>> hitsFactory = null;
+						IDictionary<string, FacetGroup> facets = null;
 
 						_eventPublisher.Publish(new CatalogSearchingEvent(searchQuery));
 
@@ -88,31 +90,40 @@ namespace SmartStore.Services.Search
 								var productIds = searchHits.Select(x => x.EntityId).ToArray();
 								hitsFactory = () => _productService.Value.GetProductsByIds(productIds, loadFlags);
 							}
-						}
 
-						if (totalCount < 4)
-						{
-							// TODO: (mg) Let merchant specify min hit count, from which suggestions should NOT be presented
 							try
 							{
-								using (_chronometer.Step("Spell checking"))
+								using (_chronometer.Step("Get facets"))
 								{
-									spellCheckerSuggestions = searchEngine.CheckSpelling();
+									facets = searchEngine.GetFacetMap();
 								}
 							}
 							catch (Exception exception)
 							{
-								// spell checking should not break the search
 								_logger.Error(exception);
 							}
 						}
 
+						try
+						{
+							using (_chronometer.Step("Spell checking"))
+							{
+								spellCheckerSuggestions = searchEngine.CheckSpelling();
+							}
+						}
+						catch (Exception exception)
+						{
+							// spell checking should not break the search
+							_logger.Error(exception);
+						}
+
 						var result = new CatalogSearchResult(
-							searchEngine, 
+							searchEngine,
+							searchQuery,
 							totalCount,
 							hitsFactory, 
-							searchQuery, 
-							spellCheckerSuggestions);
+							spellCheckerSuggestions,
+							facets);
 
 						_eventPublisher.Publish(new CatalogSearchedEvent(searchQuery, result));
 

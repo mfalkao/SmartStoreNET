@@ -30,7 +30,7 @@ namespace SmartStore.Core.Domain.Catalog
 			DefaultViewMode = "grid";
 			CategoryBreadcrumbEnabled = true;
 			ShowShareButton = true;
-			PageShareCode = "<!-- AddThis Button BEGIN --><div class=\"addthis_toolbox addthis_default_style \"><a class=\"addthis_button_preferred_1\"></a><a class=\"addthis_button_preferred_2\"></a><a class=\"addthis_button_preferred_3\"></a><a class=\"addthis_button_preferred_4\"></a><a class=\"addthis_button_compact\"></a><a class=\"addthis_counter addthis_bubble_style\"></a></div><script type=\"text/javascript\">var addthis_config = {\"data_track_addressbar\":false};</script><script type=\"text/javascript\" src=\"//s7.addthis.com/js/300/addthis_widget.js#pubid=ra-50f6c18f03ecbb2f\"></script><!-- AddThis Button END -->";
+			PageShareCode = "<!-- AddThis Button BEGIN --><div class=\"addthis_toolbox addthis_default_style addthis_32x32_style\"><a class=\"addthis_button_preferred_1\"></a><a class=\"addthis_button_preferred_2\"></a><a class=\"addthis_button_preferred_3\"></a><a class=\"addthis_button_preferred_4\"></a><a class=\"addthis_button_compact\"></a><a class=\"addthis_counter addthis_bubble_style\"></a></div><script type=\"text/javascript\">var addthis_config = {\"data_track_addressbar\":false};</script><script type=\"text/javascript\" src=\"//s7.addthis.com/js/300/addthis_widget.js#pubid=ra-50f6c18f03ecbb2f\"></script><!-- AddThis Button END -->";
 			DefaultProductRatingValue = 5;
 			NotifyStoreOwnerAboutNewProductReviews = true;
 			EmailAFriendEnabled = true;
@@ -47,7 +47,8 @@ namespace SmartStore.Core.Domain.Catalog
 			NumberOfBestsellersOnHomepage = 12;
             ShowManufacturersOnHomepage = true;
             ShowManufacturerPictures = false;
-			ShowManufacturerPicturesInProductDetail = true;
+            ShowManufacturerInProductDetail = true;
+            ShowManufacturerPicturesInProductDetail = true;
 			ProductsAlsoPurchasedEnabled = true;
 			ProductsAlsoPurchasedNumber = 12;
 			NumberOfProductTags = 15;
@@ -70,6 +71,7 @@ namespace SmartStore.Core.Domain.Catalog
 			ShowLinkedAttributeValueImage = true;
 			EnableDynamicPriceUpdate = true;
             ShowProductReviewsInProductDetail = true;
+            EnableHtmlTextCollapser = true;
 			HtmlTextCollapsedHeight = 260;
 			MostRecentlyUsedCategoriesMaxSize = 6;
 			MostRecentlyUsedManufacturersMaxSize = 4;
@@ -297,10 +299,15 @@ namespace SmartStore.Core.Domain.Catalog
         /// </summary>
         public bool ShowManufacturerPictures { get; set; }
 
-		/// <summary>
-		/// Gets or sets a value indicating whether to hide manufacturer pictures in product detail
+        /// <summary>
+		/// Gets or sets a value indicating whether to display manufacturer detail links in product detail pages
 		/// </summary>
-		public bool ShowManufacturerPicturesInProductDetail { get; set; }
+		public bool ShowManufacturerInProductDetail { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether to display pictures or textual links to manufacturer pages in product detail pages
+        /// </summary>
+        public bool ShowManufacturerPicturesInProductDetail { get; set; }
 
 		/// <summary>
 		/// Gets or sets a value indicating whether to hide manufacturer default pictures
@@ -377,6 +384,8 @@ namespace SmartStore.Core.Domain.Catalog
         public int? LabelAsNewForMaxDays { get; set; }
 
         public bool ShowDefaultQuantityUnit { get; set; }
+
+        public bool ShowDefaultDeliveryTime { get; set; }
 
         public bool ShowDiscountSign { get; set; }
 

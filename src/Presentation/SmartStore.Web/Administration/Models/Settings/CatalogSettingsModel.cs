@@ -63,6 +63,9 @@ namespace SmartStore.Admin.Models.Settings
         [SmartResourceDisplayName("Admin.Configuration.Settings.Catalog.ShowDefaultQuantityUnit")]
         public bool ShowDefaultQuantityUnit { get; set; }
 
+        [SmartResourceDisplayName("Admin.Configuration.Settings.Catalog.ShowDefaultDeliveryTime")]
+        public bool ShowDefaultDeliveryTime { get; set; }
+
         [SmartResourceDisplayName("Admin.Configuration.Settings.Catalog.ShowManufacturersOnHomepage")]
         public bool ShowManufacturersOnHomepage { get; set; }
 
@@ -249,10 +252,13 @@ namespace SmartStore.Admin.Models.Settings
         [SmartResourceDisplayName("Admin.Configuration.Settings.Catalog.DisplayAllImagesNumber")]
         public int DisplayAllImagesNumber { get; set; }
 
-		[SmartResourceDisplayName("Admin.Configuration.Settings.Catalog.ShowManufacturerPicturesInProductDetail")]
-		public bool ShowManufacturerPicturesInProductDetail { get; set; }
+        [SmartResourceDisplayName("Admin.Configuration.Settings.Catalog.ShowManufacturerInProductDetail")]
+        public bool ShowManufacturerInProductDetail { get; set; }
 
-		[SmartResourceDisplayName("Admin.Configuration.Settings.Catalog.ShowDeliveryTimesInProductDetail")]
+        [SmartResourceDisplayName("Admin.Configuration.Settings.Catalog.ShowManufacturerPicturesInProductDetail")]
+		public bool ShowManufacturerPicturesInProductDetail { get; set; }
+        
+        [SmartResourceDisplayName("Admin.Configuration.Settings.Catalog.ShowDeliveryTimesInProductDetail")]
         public bool ShowDeliveryTimesInProductDetail { get; set; }
 
         [SmartResourceDisplayName("Admin.Configuration.Settings.Catalog.DeliveryTimeIdForEmptyStock")]

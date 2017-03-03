@@ -1,11 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Web;
 using System.Web.Routing;
+using Newtonsoft.Json;
+using SmartStore.Collections;
 using SmartStore.Core.Data;
 using SmartStore.Core.Domain.Catalog;
 using SmartStore.Core.Search;
+using SmartStore.Core.Search.Facets;
+using SmartStore.Core.Search.Filter;
 using SmartStore.Services.Catalog;
 using SmartStore.Services.Directory;
 
@@ -23,21 +28,24 @@ namespace SmartStore.Services.Search.Modelling
 		c	-	Categories
 		m	-	Manufacturers
 		r	-	Min Rating
-		a	-	Stock
+		sq	-	Stock Quantity
 		d	-	Delivery Time
-
 		v	-	View Mode
 		
-		*	-	Specification attributes & variants 
+		*	-	Variants 
 	*/
 
 	public class CatalogSearchQueryFactory : ICatalogSearchQueryFactory
 	{
-		private readonly HttpContextBase _httpContext;
-		private readonly CatalogSettings _catalogSettings;
-		private readonly SearchSettings _searchSettings;
-		private readonly ICurrencyService _currencyService;
-		private readonly ICommonServices _services;
+		protected static readonly string[] _tokens = new string[] { "q", "i", "s", "o", "pf", "pt", "c", "m", "r", "sq", "d", "v" };
+		protected readonly HttpContextBase _httpContext;
+		protected readonly CatalogSettings _catalogSettings;
+		protected readonly SearchSettings _searchSettings;
+		protected readonly ICurrencyService _currencyService;
+		protected readonly ICommonServices _services;
+		// field name to display order
+		protected Dictionary<string, int> _globalFilters;
+		private Multimap<string, string> _aliases;
 
 		public CatalogSearchQueryFactory(
 			HttpContextBase httpContext,
@@ -51,6 +59,8 @@ namespace SmartStore.Services.Search.Modelling
 			_searchSettings = searchSettings;
 			_currencyService = currencyService;
 			_services = services;
+
+			_globalFilters = new Dictionary<string, int>();
 
 			QuerySettings = DbQuerySettings.Default;
 		}
@@ -70,7 +80,26 @@ namespace SmartStore.Services.Search.Modelling
 			var area = routeData.GetAreaName();
 			var controller = routeData.GetRequiredString("controller");
 			var action = routeData.GetRequiredString("action");
-			string origin = "{0}{1}/{2}".FormatInvariant(area == null ? "" : area + "/", controller, action);
+			var origin = "{0}{1}/{2}".FormatInvariant(area == null ? "" : area + "/", controller, action);
+
+			if (!origin.IsCaseInsensitiveEqual("Search/InstantSearch"))
+			{
+				_globalFilters.Add(_catalogSettings.IncludeFeaturedProductsInNormalLists ? "categoryid" : "notfeaturedcategoryid", 0);
+
+				if (_searchSettings.GlobalFilters.HasValue())
+				{
+					var globalFilters = JsonConvert.DeserializeObject<List<GlobalSearchFilterDescriptor>>(_searchSettings.GlobalFilters);
+
+					globalFilters.Where(x => !x.Disabled).Each(x =>	_globalFilters.Add(x.FieldName, x.DisplayOrder));
+				}
+				else
+				{				
+					_globalFilters.Add("manufacturerid", 1);
+					_globalFilters.Add("price", 2);
+					_globalFilters.Add("rate", 3);
+					_globalFilters.Add("deliveryid", 4);
+				}
+			}
 
 			var term = GetValueFor<string>("q");
 
@@ -80,6 +109,7 @@ namespace SmartStore.Services.Search.Modelling
 			var query = new CatalogSearchQuery(fields.ToArray(), term, _searchSettings.SearchMode)
 				.OriginatesFrom(origin)
 				.WithLanguage(_services.WorkContext.WorkingLanguage)
+				.WithCurrency(_services.WorkContext.WorkingCurrency)
 				.VisibleIndividuallyOnly(true);
 
 			// Visibility
@@ -247,6 +277,32 @@ namespace SmartStore.Services.Search.Modelling
 			query.CustomData["ViewMode"] = _catalogSettings.DefaultViewMode;
 		}
 
+		private void AddFacet(
+			CatalogSearchQuery query,
+			string fieldName,
+			bool isMultiSelect,
+			FacetSorting sorting,
+			Action<FacetDescriptor> addValues)
+		{
+			if (!_globalFilters.ContainsKey(fieldName))
+				return;
+
+			var facet = new FacetDescriptor(fieldName);
+			facet.Label = _services.Localization.GetResource(FacetDescriptor.GetLabelResourceKey(fieldName) ?? fieldName);
+			facet.IsMultiSelect = isMultiSelect;
+			facet.DisplayOrder = _globalFilters[fieldName];
+			facet.OrderBy = sorting;
+
+			if (fieldName != "rate")
+			{
+				facet.MinHitCount = _searchSettings.FilterMinHitCount;
+				facet.MaxChoicesCount = _searchSettings.FilterMaxChoicesCount;
+			}
+
+			addValues(facet);
+			query.WithFacet(facet);
+		}
+
 		protected virtual void ConvertCategory(CatalogSearchQuery query, RouteData routeData, string origin)
 		{
 			var ids = GetValueFor<List<int>>("c");
@@ -255,6 +311,17 @@ namespace SmartStore.Services.Search.Modelling
 				// TODO; (mc) Get deep ids (???) Make a low-level version of CatalogHelper.GetChildCategoryIds()
 				query.WithCategoryIds(_catalogSettings.IncludeFeaturedProductsInNormalLists ? null : (bool?)false, ids.ToArray());
 			}
+
+			var fieldName = (_catalogSettings.IncludeFeaturedProductsInNormalLists ? "categoryid" : "notfeaturedcategoryid");
+
+			AddFacet(query, fieldName, true, FacetSorting.HitsDesc, descriptor =>
+			{
+				if (ids != null && ids.Any())
+				{
+					ids.Select(x => new FacetValue(x) { IsSelected = true })
+						.Each(x => descriptor.AddValue(x));
+				}
+			});
 		}
 
 		protected virtual void ConvertManufacturer(CatalogSearchQuery query, RouteData routeData, string origin)
@@ -264,6 +331,15 @@ namespace SmartStore.Services.Search.Modelling
 			{
 				query.WithManufacturerIds(null, ids.ToArray());
 			}
+
+			AddFacet(query, "manufacturerid", true, FacetSorting.ValueAsc, descriptor =>
+			{
+				if (ids != null && ids.Any())
+				{
+					ids.Select(x => new FacetValue(x) { IsSelected = true })
+						.Each(x => descriptor.AddValue(x));
+				}
+			});
 		}
 
 		protected virtual void ConvertPrice(CatalogSearchQuery query, RouteData routeData, string origin)
@@ -282,10 +358,33 @@ namespace SmartStore.Services.Search.Modelling
 				maxPrice = _currencyService.ConvertToPrimaryStoreCurrency(maxPrice.Value, currency);
 			}
 
+			if (minPrice.HasValue && maxPrice.HasValue && minPrice > maxPrice)
+			{
+				var tmp = minPrice;
+				minPrice = maxPrice;
+				maxPrice = tmp;
+			}
+
 			if (minPrice.HasValue || maxPrice.HasValue)
 			{
-				query.PriceBetween(minPrice, maxPrice, currency);
+				query.PriceBetween(minPrice, maxPrice);
 			}
+
+			AddFacet(query, "price", false, FacetSorting.DisplayOrder, descriptor =>
+			{
+				if (minPrice.HasValue || maxPrice.HasValue)
+				{
+					descriptor.AddValue(new FacetValue(
+						minPrice.HasValue ? decimal.ToDouble(minPrice.Value) : (double?)null,
+						maxPrice.HasValue ? decimal.ToDouble(maxPrice.Value) : (double?)null,
+						IndexTypeCode.Double,
+						minPrice.HasValue,
+						maxPrice.HasValue)
+					{
+						IsSelected = true
+					});
+				}
+			});
 		}
 
 		protected virtual void ConvertRating(CatalogSearchQuery query, RouteData routeData, string origin)
@@ -296,11 +395,19 @@ namespace SmartStore.Services.Search.Modelling
 			{
 				query.WithRating(fromRate, null);
 			}
+
+			AddFacet(query, "rate", false, FacetSorting.DisplayOrder, descriptor =>
+			{
+				if (fromRate.HasValue)
+				{
+					descriptor.AddValue(new FacetValue(fromRate.Value) { IsSelected = true });
+				}
+			});
 		}
 
 		protected virtual void ConvertStock(CatalogSearchQuery query, RouteData routeData, string origin)
 		{
-			var fromQuantity = GetValueFor<int?>("a");
+			var fromQuantity = GetValueFor<int?>("sq");
 
 			if (fromQuantity.HasValue)
 			{
@@ -315,6 +422,15 @@ namespace SmartStore.Services.Search.Modelling
 			{
 				query.WithDeliveryTimeIds(ids.ToArray());
 			}
+
+			AddFacet(query, "deliveryid", true, FacetSorting.DisplayOrder, descriptor =>
+			{
+				if (ids != null && ids.Any())
+				{
+					ids.Select(x => new FacetValue(x) { IsSelected = true })
+						.Each(x => descriptor.AddValue(x));
+				}
+			});
 		}
 
 		protected virtual void OnConverted(CatalogSearchQuery query, RouteData routeData, string origin)
@@ -336,6 +452,35 @@ namespace SmartStore.Services.Search.Modelling
 			}
 
 			return default(T);
+		}
+
+		protected Multimap<string, string> Aliases
+		{
+			get
+			{
+				if (_aliases == null)
+				{
+					_aliases = new Multimap<string, string>();
+
+					if (_httpContext.Request != null)
+					{
+						var form = _httpContext.Request.Form;
+						var query = _httpContext.Request.QueryString;
+
+						if (form != null)
+						{
+							form.AllKeys.Where(x => !_tokens.Contains(x)).Each(key => _aliases.AddRange(key, form[key].SplitSafe(",")));
+						}
+
+						if (query != null)
+						{
+							query.AllKeys.Where(x => !_tokens.Contains(x)).Each(key => _aliases.AddRange(key, query[key].SplitSafe(",")));
+						}
+					}
+				}
+
+				return _aliases;
+			}
 		}
 	}
 }

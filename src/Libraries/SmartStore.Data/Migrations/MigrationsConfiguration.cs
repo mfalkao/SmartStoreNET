@@ -31,19 +31,40 @@ namespace SmartStore.Data.Migrations
 			context.MigrateLocaleResources(MigrateLocaleResources);
 			MigrateSettings(context);
 
-            // remove permission record
+            // Remove permission record
             var permissionRecords = context.Set<PermissionRecord>();
             var record = permissionRecords.Where(x => x.SystemName.Equals("ManageContentSlider")).FirstOrDefault();
             if (record != null)
-                permissionRecords.Remove(record);
+			{
+				permissionRecords.Remove(record);
+			}
 
-            context.SaveChanges();
+			// Add new product template...
+			context.Set<ProductTemplate>().AddOrUpdate(x => x.ViewPath, new ProductTemplate
+			{
+				Name = "Default Product Template",
+				ViewPath = "Product",
+				DisplayOrder = 10
+			});
+
+			// ...and set it as default where applicable
+			var newProductTemplate = context.Set<ProductTemplate>().FirstOrDefault(x => x.Name == "Default Product Template") ?? context.Set<ProductTemplate>().LastOrDefault();
+			if (newProductTemplate != null)
+			{
+				context.ExecuteSqlCommand("Update [Product] Set [ProductTemplateId] = {0}", true, null, newProductTemplate.Id);
+			}
+
+			// ...finally delete old ones
+			var oldProductTemples = context.Set<ProductTemplate>().Where(x => x.ViewPath == "ProductTemplate.Simple" || x.ViewPath == "ProductTemplate.Grouped").ToList();
+			context.Set<ProductTemplate>().RemoveRange(oldProductTemples);
+
+			context.SaveChanges();
         }
 
 		public void MigrateSettings(SmartObjectContext context)
 		{
 			// Change ProductSortingEnum.Position > Relevance
-			var settings = context.Set<Setting>().Where(x => x.Name == "CatalogSettings.DefaultSortOrder" && x.Value == "Position").ToList();
+			var settings = context.Set<Setting>().Where(x => x.Name == "CatalogSettings.DefaultSortOrder" && x.Value.StartsWith("Position")).ToList();
 			if (settings.Any())
 			{
 				settings.Each(x => x.Value = "Relevance");
@@ -55,7 +76,7 @@ namespace SmartStore.Data.Migrations
             });
 
 			// Change MediaSettings.ProductThumbPictureSize to 250 if smaller
-			var keys = new string[] { "MediaSettings.ProductThumbPictureSize", "MediaSettings.CategoryThumbPictureSize", "MediaSettings.ManufacturerThumbPictureSize" };
+			var keys = new string[] { "MediaSettings.ProductThumbPictureSize", "MediaSettings.CategoryThumbPictureSize", "MediaSettings.ManufacturerThumbPictureSize", "MediaSettings.CartThumbPictureSize", "MediaSettings.MiniCartThumbPictureSize" };
 			settings = context.Set<Setting>().Where(x => keys.Contains(x.Name)).ToList();
 			if (settings.Any())
 			{
@@ -70,28 +91,41 @@ namespace SmartStore.Data.Migrations
 			}
 
 			// Change MediaSettings.ProductDetailsPictureSize to 600 if smaller
-			var setting = context.Set<Setting>().FirstOrDefault(x => x.Name == "MediaSettings.ProductDetailsPictureSize");
+			var setting = context.Set<Setting>().FirstOrDefault(x => x.Name == "MediaSettings.ProductDetailsPictureSize" || x.Name == "MediaSettings.AssociatedProductPictureSize");
 			if (setting != null && setting.Value.Convert<int>() < 600)
 			{
 				setting.Value = "600";
 			}
 
-			// Add new product template
-			// TODO: (mc) refactor depending code to reflect this change (ProductTemplate.Simple/Grouped are obsolete now)
-			context.Set<ProductTemplate>().AddOrUpdate(x => x.ViewPath, new ProductTemplate
+			// Change MediaSettings.VariantValueThumbPictureSize to 70 if smaller
+			setting = context.Set<Setting>().FirstOrDefault(x => x.Name == "MediaSettings.VariantValueThumbPictureSize");
+			if (setting != null && setting.Value.Convert<int>() < 70)
 			{
-				Name = "Default Product Template",
-				ViewPath = "Product",
-				DisplayOrder = 10
-			});
+				setting.Value = "70";
+			}
 
-            // [...]
-            
-            context.SaveChanges();
+			// Change CatalogSettings.PageShareCode (16px > 32px)
+			setting = context.Set<Setting>().FirstOrDefault(x => x.Name == "CatalogSettings.PageShareCode");
+			if (setting != null)
+			{
+				setting.Value = "<!-- AddThis Button BEGIN --><div class=\"addthis_toolbox addthis_default_style addthis_32x32_style\"><a class=\"addthis_button_preferred_1\"></a><a class=\"addthis_button_preferred_2\"></a><a class=\"addthis_button_preferred_3\"></a><a class=\"addthis_button_preferred_4\"></a><a class=\"addthis_button_compact\"></a><a class=\"addthis_counter addthis_bubble_style\"></a></div><script type=\"text/javascript\">var addthis_config = {\"data_track_addressbar\":false};</script><script type=\"text/javascript\" src=\"//s7.addthis.com/js/300/addthis_widget.js#pubid=ra-50f6c18f03ecbb2f\"></script><!-- AddThis Button END -->";
+			}
+
+			// Change ThemeSettings.DefaultTheme to 'Flex'
+			setting = context.Set<Setting>().FirstOrDefault(x => x.Name == "ThemeSettings.DefaultTheme");
+			if (setting != null)
+			{
+				setting.Value = "Flex";
+			}
+
+			// [...]
+
+			context.SaveChanges();
 
 			context.MigrateSettings(x => 
 			{
 				x.Add<int>("MediaSettings.DefaultThumbnailAspectRatio", 1);
+                x.Delete("ShoppingCartSettings.MiniShoppingCartProductNumber");
 			});
 		}
 
@@ -145,10 +179,11 @@ namespace SmartStore.Data.Migrations
 			builder.AddOrUpdate("Search.NoResultsText", "Your search did not match any products.", "Ihre Suche ergab leider keine Produkttreffer.");
 			builder.AddOrUpdate("Search.NumHits", "{0} Hits", "{0} Treffer");
 			builder.AddOrUpdate("Search.InstantSearch", "Instant Search", "Instantsuche");
-			builder.AddOrUpdate("Search.GlobalFilters", "Global Filters", "Globale Filter");
+			builder.AddOrUpdate("Search.ResultFiltering", "Result filtering", "Ergebnisfilterung");
 			builder.AddOrUpdate("Search.FilterBy", "Filter by", "Filtern nach");
 			builder.AddOrUpdate("Search.TermInCategory", "in {0}", "in {0}");
 			builder.AddOrUpdate("Search.TermFromBrand", "from {0}", "von {0}");
+			builder.AddOrUpdate("Search.SearchBox.Tooltip", "What are you looking for?", "Wonach suchen Sie?");
 			builder.AddOrUpdate("Search.SearchTermMinimumLengthIsNCharacters",
 				"The minimum length for the search term is {0} characters.",
 				"Die Mindestlänge für den Suchbegriff beträgt {0} Zeichen.");
@@ -343,6 +378,254 @@ namespace SmartStore.Data.Migrations
                 "Hersteller alphabetisch sortieren",
                 "Specifies whether manufacturers on the manufacturer overview page will be displayed sorted alphabetically.",
                 "Legt fest ob Hersteller auf der Herstellerübersichtsseite alphabetisch sortiert dargestellt werden.");
-        }
+
+			builder.AddOrUpdate("Common.NoImageAvail", "No image available", "Bild wird nachgereicht");
+
+			builder.AddOrUpdate("Products.Bundle.PriceWithoutDiscount.Note", "Instead of", "Statt");
+			builder.AddOrUpdate("Products.Bundle.PriceWithDiscount.Note", "As bundle only", "Im Set nur");
+			builder.AddOrUpdate("Products.Price", "Price", "Preis");
+			builder.AddOrUpdate("Products.TierPrices", "Block pricing", "Staffelpreise");
+			builder.AddOrUpdate("Products.ManufacturerPartNumber", "MPN", "MPN");
+			builder.AddOrUpdate("Products.Details", "Description", "Beschreibung");
+			builder.AddOrUpdate("Products.Specs", "Features", "Merkmale");
+			builder.AddOrUpdate("Products.Availability.InStockWithQuantity", "{0} in stock", "{0} am Lager");
+			builder.AddOrUpdate("Products.Availability.InStock", "In stock", "Vorrätig");
+			builder.AddOrUpdate("Products.Availability.OutOfStock", "Out of stock", "Vergriffen");
+
+			builder.AddOrUpdate("Reviews.Overview.First", "Be the first to review this item", "Geben Sie die erste Bewertung ab");
+			builder.AddOrUpdate("Reviews.Overview.AddNew", "Write a review", "Bewertung schreiben");
+			builder.AddOrUpdate("Reviews.Overview.ReadAll", "Read all reviews", "Alle Bewertungen lesen");
+			builder.AddOrUpdate("Reviews.Empty", "There are no reviews yet", "Es liegen keine Bewertungen vor");
+			builder.AddOrUpdate("Reviews.Fields.Rating", "Your rating?", "Ihre Bewertung?");
+			builder.AddOrUpdate("Reviews.Fields.Title", "Headline for your review", "Titel Ihrer Bewertung");
+			builder.AddOrUpdate("Reviews.Fields.ReviewText", "Your opinion on the product", "Ihre Meinung zum Produkt");
+			builder.AddOrUpdate("Reviews.SubmitButton", "Submit review", "Bewertung absenden");
+
+			builder.AddOrUpdate("Admin.Configuration.Settings.Search.FilterMinHitCount",
+				"Minimum hit count for filters",
+				"Minimale Trefferanzahl für Filter",
+				"Specifies the minimum number of search hits from which to show a filter.",
+				"Legt die minimale Anzahl an Suchtreffern fest, ab dem ein Filter angezeigt wird.");
+
+			builder.AddOrUpdate("Admin.Configuration.Settings.Search.FilterMaxChoicesCount",
+				"Maximum number of filters",
+				"Maximale Anzahl an Filtern",
+				"Specifies the maximum number of filters per group.",
+				"Legt die maximale Anzahl an Filtern pro Gruppe fest.");
+
+			builder.AddOrUpdate("Enums.SmartStore.Core.Search.Facets.FacetSorting.HitsDesc",
+				"Hit count: highest first",
+				"Trefferanzahl: Höchste zuerst");
+
+			builder.AddOrUpdate("Enums.SmartStore.Core.Search.Facets.FacetSorting.ValueAsc",
+				"Name: A to Z",
+				"Name: A bis Z");
+
+			builder.AddOrUpdate("Enums.SmartStore.Core.Search.Facets.FacetSorting.DisplayOrder",
+				"According to display order",
+				"Gemäß Reihenfolge");
+
+			builder.AddOrUpdate("Admin.Catalog.Attributes.SpecificationAttributes.Fields.Alias",
+				"Alias",
+				"Alias",
+				"An optional reference name for internal use.",
+				"Ein optionaler Referenzwert für interne Zwecke.");
+
+			builder.AddOrUpdate("Admin.Catalog.Attributes.SpecificationAttributes.Options.Fields.Alias",
+				"Alias",
+				"Alias",
+				"An optional reference name for internal use.",
+				"Ein optionaler Referenzwert für interne Zwecke.");
+
+			builder.AddOrUpdate("Admin.Catalog.Attributes.SpecificationAttributes.Fields.FacetSorting",
+				"Sorting of search filters",
+				"Sortierung der Suchfilter",
+				"Specifies the sorting of the search filters. This setting is only effective in accordance with the Mega-Search-Plus plugin. Changes will take effect after a renewal of the search index.",
+				"Legt die Sortierung der Suchfilter fest. Diese Einstellung ist nur in Zusammenhang mit dem Mega-Search-Plus Plugin wirksam. Änderungen werden erst nach einer Erneuerung des Suchindex wirksam.");
+
+			builder.AddOrUpdate("Search.Facet.Category", "Category", "Kategorie");
+			builder.AddOrUpdate("Search.Facet.Manufacturer", "Brand", "Marke");
+			builder.AddOrUpdate("Search.Facet.Price", "Price", "Preis");
+			builder.AddOrUpdate("Search.Facet.Rating", "Rating", "Bewertung");
+			builder.AddOrUpdate("Search.Facet.DeliveryTime", "Delivery Time", "Lieferzeit");
+
+			builder.AddOrUpdate("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.ViewLink",
+				"Edit Options (Total: {0})",
+				"Optionen bearbeiten (Anzahl: {0})");
+			builder.AddOrUpdate("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.EditAttributeDetails",
+				"Options for attribute '{0}'. Product: {1}",
+				"Optionen für Attribut '{0}'. Produkt: {1}");
+			builder.AddOrUpdate("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values", "Options", "Optionen");
+			builder.AddOrUpdate("Admin.Catalog.Attributes.CheckoutAttributes.Values", "Options", "Optionen");
+
+			builder.AddOrUpdate("Search.Facet.PriceLabelTemplate", "up to {0}", "bis {0}");
+
+			builder.AddOrUpdate("Common.CopyToClipboard.Failed", "Failed to copy.", "Kopieren ist fehlgeschlagen.");
+
+            builder.AddOrUpdate("PDFPackagingSlip.Gtin", "EAN", "Gtin");
+
+			builder.AddOrUpdate("Common.Error.AliasAlreadyExists",
+				"An alias \"{0}\" already exists.",
+				"Ein Alias \"{0}\" existiert bereits.");
+
+            builder.AddOrUpdate("Admin.Configuration.DeliveryTimes.Fields.IsDefault", 
+                "Is default",
+                "Ist Standard",
+                "Specifies the default delivery time.",
+                "Bestimmt die Standard-Lieferzeit");
+
+            builder.AddOrUpdate("Admin.Configuration.Settings.Catalog.ShowDefaultDeliveryTime",
+                "Show default delivery time",
+                "Zeige Standard-Lieferzeit",
+                "Specifies whether to show the default delivery time if there is none assigned to a product.",
+                "Bestimmt ob die Standard-Lieferzeit für ein Produkt angezeigt wird, wenn dem Produkt keine Lieferzeit zugewiesen wurde.");
+            
+            builder.AddOrUpdate("Admin.Catalog.Products.Fields.QuantityStep",
+                "Quantity step",
+                "Schrittweite",
+                "Specifies the incremental respectively decremental step on usage of +/-. Orderable quantities are limited to a multiple of this value.",
+                "Bestimmt den Wert, um den die Bestellmenge erhöht bzw. vermindert wird, wenn ein Kunde die +/- Steuerelemente benutzt. Die Bestellmenge ist auf ein Vielfaches dieses Wertes beschränkt.");
+
+            builder.AddOrUpdate("Admin.Catalog.Products.Fields.QuantiyControlType",
+                "Control type",
+                "Steuerelement",
+                "Specifies the control type to enter the quantity.",
+                "Bestimmt das Steuerelement für die Angabe der Bestellmenge.");
+
+            builder.AddOrUpdate("Admin.Catalog.Products.Fields.HideQuantityControl",
+                "Hide quantity control on product pages",
+                "Angabe der Bestellmenge auf Produktseiten nicht anbieten",
+                "Specifies whether to hide the quantity control on product pages.",
+                "Bestimmt ob eine Element zur Angabe der Bestellmenge auf Produktdetailseiten dargestellt wird.");
+            
+            builder.AddOrUpdate("Admin.Configuration.Settings.Catalog.ShowManufacturerInProductDetail",
+                "Display manufacturer",
+                "Hersteller anzeigen.",
+                "Specifies whether the product manufacturer will be displayed on product detail pages.",
+                "Bestimmt ob der Hersteller eines Produktes auf Produktdetailseiten angezeigt wird.");
+			builder.AddOrUpdate("Admin.Catalog.Products.Fields.CustomsTariffNumber",
+				"Customs Tariff Number",
+				"Zolltarifnummer",
+				"Specifies the customs tariff number of the product.",
+				"Legt die Zolltarifnummer des Produktes fest.");
+
+			builder.AddOrUpdate("Admin.Catalog.Products.Fields.CountryOfOriginId",
+				"Country of Origin",
+				"Herkunftsland",
+				"Specifies the country of origin of the product.",
+				"Legt das Herkunftsland des Produktes fest.");
+
+			builder.Delete(
+				"Products.ProductHasBeenAddedToTheWishlist", 
+				"Products.ProductHasBeenAddedToTheWishlist.Link",
+				"Products.ProductHasBeenAddedToTheCart",
+				"Products.ProductHasBeenAddedToTheCart.Link");
+
+			builder.AddOrUpdate("ShoppingCart.AddToWishlist", "Add to wishlist", "Auf die Wunschliste");
+			builder.AddOrUpdate("ShoppingCart.Mini.AddedItemToCart", "The product {0} has been successfully added to your cart", "Das Produkt {0} wurde erfolgreich in den Warenkorb gelegt");
+			builder.AddOrUpdate("ShoppingCart.Mini.AddedItemToWishlist", "The product {0} has been added to your wishlist", "Das Produkt {0} wurde erfolgreich auf ihrer Wunschliste vermerkt");
+			builder.AddOrUpdate("ShoppingCart.Mini.AddedItemToCompare", "The product {0} has been successfully added to your compare list", "Das Produkt {0} wurde der Vergleichsliste erfolgreich hinzugefügt");
+			builder.AddOrUpdate("ShoppingCart.Mini.EmptyCart.Title", "Shopping cart empty", "Warenkorb ist leer");
+			builder.AddOrUpdate("ShoppingCart.Mini.EmptyWishlist.Title", "Wishlist empty", "Wunschliste ist leer");
+			builder.AddOrUpdate("ShoppingCart.Mini.EmptyCompare.Title", "Compare list empty", "Vergleichsliste ist leer");
+			builder.AddOrUpdate("ShoppingCart.Mini.EmptyCart.Info",
+				"You have not added any product to your cart yet. Use the <i class='{0}'></i> icon to add a product to your cart.", 
+				"Sie haben noch keine Produkte in ihren Warenkorb gelegt.<br /> Benutzen Sie das <i class='{0}'></i> Symbol, um ein Produkt in den Warenkorb zu legen.");
+			builder.AddOrUpdate("ShoppingCart.Mini.EmptyWishlist.Info",
+				"You have not added any product to your wishlist yet. Use the <i class='{0}'></i> icon to add a product to your wishlist.",
+				"Sie haben noch keine Produkte auf ihrer Wunschliste vermerkt.<br /> Benutzen Sie das <i class='{0}'></i> Symbol, um ein Produkt in ihrer Wunschliste zu vermerken.");
+			builder.AddOrUpdate("ShoppingCart.Mini.EmptyCompare.Info",
+				"You have not added any product to your compare list yet. Use the <i class='{0}'></i> icon to add a product to your compare list.",
+				"Sie haben noch keine Produkte in ihrer Vergleichsliste.<br /> Benutzen Sie das <i class='{0}'></i> Symbol, um ein Produkt in die Vergleichsliste aufzunehmen.");
+
+            builder.AddOrUpdate("PageTitle.Blog.Month", "Blog entries in {0}", "Blog Einträge des Monats {0}");
+            builder.AddOrUpdate("PageTitle.Blog.Tag", "Blog entries for the tag {0}", "Blog-Einträge für das Stichwort {0}");
+            builder.AddOrUpdate("Metadesc.Blog.Month", "Blog entries in {0}", "Blog Einträge des Monats {0}");
+            builder.AddOrUpdate("Metadesc.Blog.Tag", "Blog entries for the tag {0}", "Blog-Einträge für das Stichwort {0}");
+
+            builder.AddOrUpdate("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.Fields.Picture",
+                "Picture",
+                "Bild",
+                "Choose a picture which will be displayed as the selector for the attribute.",
+                "Wählen Sie ein Bild, welches als Auswahlelement für das Attribut angezeigt werden soll.");
+
+            builder.Delete(
+                "Admin.Configuration.Settings.ShoppingCart.MiniShoppingCartProductNumber",
+                "Admin.Configuration.Settings.ShoppingCart.MiniShoppingCartProductNumber.Hint");
+
+            builder.AddOrUpdate("ShoppingCart.MoveToWishlist", "Move to wishlist", "In die Wunschliste verschieben");
+            builder.AddOrUpdate("Products.Compare.CompareNow", "Compare now", "Jetzt vergleichen");
+            builder.AddOrUpdate("ShoppingCart.PaymentButtonBar.Or", "Or", "Oder");
+
+			builder.AddOrUpdate("Common.Error.OptionAlreadyExists",
+				"The option \"{0}\" already exists.",
+				"Die Option \"{0}\" existiert bereits.");
+
+			builder.AddOrUpdate("Common.Error.ChooseDifferentValue",
+				"Please choose a different value.",
+				"Bitte wählen Sie einen anderen Wert.");
+
+			builder.AddOrUpdate("Admin.Catalog.Attributes.ProductAttributes.Fields.AllowFiltering",
+				"Allow filtering",
+				"Filtern zulassen",
+				"Specifies whether search results can be filtered by this attribute.",
+				"Legt fest, ob Suchergebnisse nach diesem Attribut gefiltert werden können.");
+
+			builder.AddOrUpdate("Common.Menu", "Menu", "Menü");
+
+			builder.Delete(
+				"Admin.Configuration.Settings.GeneralCommon.FullTextSettings",
+				"Admin.Configuration.Settings.GeneralCommon.FullTextSettings.Supported",
+				"Admin.Configuration.Settings.GeneralCommon.FullTextSettings.NotSupported",
+				"Admin.Configuration.Settings.GeneralCommon.FullTextSettings.CurrenlyEnabled",
+				"Admin.Configuration.Settings.GeneralCommon.FullTextSettings.CurrenlyDisabled",
+				"Admin.Configuration.Settings.GeneralCommon.FullTextSettings.Disable",
+				"Admin.Configuration.Settings.GeneralCommon.FullTextSettings.Disabled",
+				"Admin.Configuration.Settings.GeneralCommon.FullTextSettings.Enable",
+				"Admin.Configuration.Settings.GeneralCommon.FullTextSettings.Enabled",
+				"Admin.Configuration.Settings.GeneralCommon.FullTextSettings.SearchMode",
+				"Admin.Configuration.Settings.GeneralCommon.FullTextSettings.SearchMode.Hint",
+				"Enums.SmartStore.Core.Domain.Common.FulltextSearchMode.ExactMatch",
+				"Enums.SmartStore.Core.Domain.Common.FulltextSearchMode.And",
+				"Enums.SmartStore.Core.Domain.Common.FulltextSearchMode.Or"
+			);
+
+			builder.AddOrUpdate("Common.Options.Count", "Number options", "Anzahl Optionen");
+			builder.AddOrUpdate("Common.Options.Add", "Add option", "Option hinzufügen");
+			builder.AddOrUpdate("Common.Options.Edit", "Edit option", "Option bearbeiten");
+
+			builder.AddOrUpdate("Admin.Validation.RequiredField", "Please enter \"{0}\".", "Bitte \"{0}\" angeben.");
+
+			builder.AddOrUpdate("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.NumberOfCopiedOptions",
+				"{0} option(s) have been copied.",
+				"Es wurden {0} Option(en) kopiert.");
+
+			builder.AddOrUpdate("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.CopyOptions",
+				"Copy attribute options",
+				"Attributoptionen kopieren");
+
+			builder.AddOrUpdate("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.CopyOptionsHint",
+				"Would you like to copy the options stored for product attribute \"{0}\"? Existing attribute values are not changed.",
+				"Möchten Sie die für das Produktattribut \"{0}\" hinterlegten Optionen übernehmen? Vorhandene Attributwerte werden dabei nicht verändert.");
+
+			builder.AddOrUpdate("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.DeleteExistingValues",
+				"Delete existing attribute values",
+				"Vorhandene Attributwerte löschen");
+            
+            builder.AddOrUpdate("Offcanvas.Menu.Categories", "Categories", "Warengruppen");
+            builder.AddOrUpdate("Offcanvas.Menu.Brands", "Brands", "Marken");
+            builder.AddOrUpdate("Offcanvas.Menu.Help", "Help", "Hilfe");
+
+			var aliasHintEn = "Seo-compliant URL alias for search filters. If empty, the attribute's ID is used in page URLs.";
+			var aliasHintDe = "SEO-konformer URL-Alias für Suchfilter. Wenn leer, wird die Attribut-ID in Seiten-URLs verwendet.";
+			builder.AddOrUpdate("Admin.Catalog.Attributes.ProductAttributes.Fields.Alias.Hint", aliasHintEn, aliasHintDe);
+			builder.AddOrUpdate("Admin.Catalog.Attributes.SpecificationAttributes.Fields.Alias.Hint", aliasHintEn, aliasHintDe);
+			builder.AddOrUpdate("Admin.Catalog.Attributes.SpecificationAttributes.Options.Fields.Alias.Hint", aliasHintEn, aliasHintDe);
+			builder.AddOrUpdate("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.Fields.Alias.Hint", aliasHintEn, aliasHintDe);
+
+			builder.AddOrUpdate("Admin.Catalog.Attributes.OptionsSets",
+				"Options sets",
+				"Optionen Sets");
+		}
 	}
 }
