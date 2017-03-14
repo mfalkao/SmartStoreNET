@@ -48,31 +48,8 @@
             this.toggle();
         }
 
-    	// Close on pan[left|right]
-        var onRight = el.hasClass('offcanvas-right'),
-			canPan = el.hasClass('offcanvas-overlay');
-
-        el.hammer({}).on('panstart panleft panright panend', function (e) {
-        	var delta = onRight
-				? Math.max(0, e.gesture.deltaX)
-				: Math.min(0, e.gesture.deltaX);
-
-        	if (e.type.toLowerCase() === 'panstart') {
-        		el.css(Prefixer.css('transition'), 'none');
-        	}
-        	else if (e.type.toLowerCase() === 'panend') {
-        		el.css(Prefixer.css('transform'), '').css(Prefixer.css('transition'), '');
-        		if (Math.abs(delta) >= 100) {
-        			self.hide();
-        		}
-        	}
-        	else {
-        		// panleft or panright
-        		if (canPan) {
-        			el.css(Prefixer.css('transform'), 'translate3d(' + delta + 'px, 0, 0)');
-        		}
-        	}
-        });
+		// set up events to properly handle (touch) gestures
+        this._makeTouchy();
     }
 
 
@@ -88,6 +65,94 @@
         autohide: true,
         disableScrolling: false,
         blocker: true
+    }
+
+
+	// OFFCANVAS Internal
+	// ======================================================
+
+    OffCanvas.prototype._makeTouchy = function (fn) {
+        var self = this;
+        var el = this.el;
+
+    	// Move offcanvas on pan[left|right] and close on swipe
+    	var onRight = el.hasClass('offcanvas-right'),
+			canPan = el.hasClass('offcanvas-overlay'),
+			panning = false,
+			scrolling = false,
+			nodeScrollable = null;
+
+    	function getDelta(g) {
+    		return onRight
+				? Math.max(0, g.delta.x)
+				: Math.min(0, g.delta.x);
+    	}
+
+    	function isScrolling(e, g) {
+    		if (nodeScrollable == null || nodeScrollable.length == 0)
+    			return false;
+
+
+    		var initialScrollDelta = nodeScrollable.data('initial-scroll-top');
+    		if (!_.isNumber(initialScrollDelta))
+    			return false;
+
+    		return nodeScrollable.scrollTop() != initialScrollDelta;
+    	}
+
+    	function handleMove(e, g) {
+			// when scrolling started, do NOT attempt to pan left/right.
+    		if (scrolling || (scrolling = isScrolling(e, g)))
+    			return;
+
+    		var delta = getDelta(g);
+    		panning = !scrolling && delta != 0;
+
+    		if (panning) {
+    			// prevent scrolling during panning
+    			e.preventDefault();
+
+    			$(e.currentTarget).css(Prefixer.css('transform'), 'translate3d(' + delta + 'px, 0, 0)');
+    		}
+    	}
+
+    	el.on('tapstart', function (e, gesture) {
+    		if (canPan) {
+    			var tabs = $(e.target).closest('.offcanvas-tabs');
+    			if (tabs.length > 0) {
+    				var tabsWidth = 0;
+    				var cntWidth = el.width();
+    				tabs.find('.nav-item').each(function () { tabsWidth += $(this).width(); });
+    				if (tabsWidth > cntWidth) {
+						// Header tabs width exceed offcanvas width. Let it scroll, don't move offcanvas.
+    					scrolling = true;
+    					return;
+    				}
+    			}
+
+    			nodeScrollable = $(e.target).closest('.offcanvas-scrollable');
+    			if (nodeScrollable.length > 0) {
+    				nodeScrollable.data('initial-scroll-top', nodeScrollable.scrollTop());
+    			}
+
+    			el.css(Prefixer.css('transition'), 'none');
+    			el.on('tapmove.offcanvas', handleMove);
+    		}
+    	});
+
+    	el.on('tapend', function (e, gesture) {
+    		el.off('tapmove.offcanvas')
+				.css(Prefixer.css('transform'), '')
+				.css(Prefixer.css('transition'), '');
+
+    		if (!scrolling && Math.abs(getDelta(gesture)) >= 100) {
+    			self.hide();
+    		}
+
+    		nodeScrollable = null;
+    		panning = false;
+    		scrolling = false;
+    	});
     }
 
 

@@ -20,6 +20,7 @@ $link-color:                    #08c;
 $brand-primary:                 #3f51b5; // #0275d8
 $brand-danger:                  #f44336; // #d9534f;
 $brand-warning:                 #ff9800; // #f0ad4e;
+$brand-info:                    #78909c; // #5bc0de;
 
 $headings-line-height:          1.3;
 
@@ -124,7 +125,6 @@ $alert-border-radius:           0;
 @import "shared/_modal-flex.scss";
 @import "shared/_throbber.scss";
 @import "shared/_spinner.scss";
-@import "shared/_scrollbutton.scss";
 @import "shared/_star-rating.scss";
 @import "shared/_sortable-grip.scss";
 @import "shared/_utils.scss";
@@ -398,7 +398,11 @@ a.pretty-link {
     }
 }
 
+.d-block            { display: block; }
+.d-inline           { display: inline; }
+.d-inline-block     { display: inline-block; }
 .d-flex             { display: flex; }
+
 .flex-nowrap        { flex-wrap: nowrap !important; }
 .flex-wrap          { flex-wrap: wrap !important; }
 .flex-row           { flex-direction: row !important; }
@@ -629,8 +633,11 @@ a.pretty-link {
 }
 
 .choice-box-group {
-    $choice-box-padding: 0.1rem;
-    $choice-box-size: 2.8rem;
+    $choice-box-padding:        0.2rem;
+    $choice-box-size:           2.8rem;
+    $choice-box-size-lg:        4rem;
+    $choice-box-size-sm:        1.5rem;
+    $choice-box-size-xl:        6rem;
 
 	margin: 0;
 	padding: 0;
@@ -638,12 +645,15 @@ a.pretty-link {
     position: relative;
     margin: 0 ($choice-box-padding * -1);
 
+    @include clearfix();
+
 	.choice-box {
         position: relative;
-        display: inline-block;
-        padding: 0;
-        margin: $choice-box-padding;
-        margin-bottom: $choice-box-padding * 2;
+        float: left;
+        display: block;
+        //padding: 0;
+        padding: $choice-box-padding;
+        //padding-bottom: $choice-box-padding * 2;
 	}
 
     .choice-box-label {
@@ -654,8 +664,6 @@ a.pretty-link {
         position: relative;
 		display: block;
         cursor: pointer;
-        //outline: 3px solid transparent;
-        //transition: outline-color 0.1s linear;
 	}
 
 	.choice-box-element {
@@ -690,8 +698,10 @@ a.pretty-link {
         }
 	}
 
-	.selected .choice-box-content {
-        //outline-color: rgba(0,0,0, 0.15);
+	.choice-box-control-native:checked + .choice-box-content {
+        .choice-box-element {
+            border-color: rgba(0,0,0, 0.7);
+        }
 
         &:after {
             box-sizing: content-box;
@@ -717,12 +727,30 @@ a.pretty-link {
         }
 	}
 
-    .selected .choice-box-element {
-        border-color: rgba(0,0,0, 0.7);
-    }
-
-	.choice-box-radio {
+	.choice-box-control-native {
 		display: none !important;
 	}
+
+    // Choice box sizing
+    &.choice-box-group-xl .choice-box-element {
+        height: $choice-box-size-xl;
+        line-height: $choice-box-size-xl;
+        min-width: $choice-box-size-xl;
+        .choice-box-img { max-width: calc(#{$choice-box-size-xl} - 4px); }       
+    }
+
+    &.choice-box-group-lg .choice-box-element {
+        height: $choice-box-size-lg;
+        line-height: $choice-box-size-lg;
+        min-width: $choice-box-size-lg;
+        .choice-box-img { max-width: calc(#{$choice-box-size-lg} - 4px); }          
+    }
+
+    &.choice-box-group-sm .choice-box-element {
+        height: $choice-box-size-sm;
+        line-height: $choice-box-size-sm;
+        min-width: $choice-box-size-sm;
+        .choice-box-img { max-width: calc(#{$choice-box-size-sm} - 4px); }          
+    }
 }
 

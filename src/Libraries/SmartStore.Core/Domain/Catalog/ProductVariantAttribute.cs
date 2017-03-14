@@ -10,7 +10,7 @@ namespace SmartStore.Core.Domain.Catalog
     /// </summary>
     [DataContract]
 	public partial class ProductVariantAttribute : BaseEntity, ILocalizedEntity
-    {
+	{
         private ICollection<ProductVariantAttributeValue> _productVariantAttributeValues;
 
         /// <summary>

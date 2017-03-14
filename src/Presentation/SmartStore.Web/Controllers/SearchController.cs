@@ -6,9 +6,11 @@ using SmartStore.Core.Domain.Catalog;
 using SmartStore.Core.Domain.Customers;
 using SmartStore.Core.Domain.Media;
 using SmartStore.Core.Search;
+using SmartStore.Core.Search.Facets;
 using SmartStore.Services.Common;
 using SmartStore.Services.Search;
 using SmartStore.Services.Search.Modelling;
+using SmartStore.Services.Search.Rendering;
 using SmartStore.Web.Framework.Controllers;
 using SmartStore.Web.Framework.Security;
 using SmartStore.Web.Models.Catalog;
@@ -25,6 +27,7 @@ namespace SmartStore.Web.Controllers
 		private readonly IGenericAttributeService _genericAttributeService;
 		private readonly CatalogHelper _catalogHelper;
 		private readonly ICatalogSearchQueryFactory _queryFactory;
+		private readonly Lazy<IFacetTemplateProvider> _templateProvider;
 
 		public SearchController(
 			ICatalogSearchQueryFactory queryFactory,
@@ -33,7 +36,8 @@ namespace SmartStore.Web.Controllers
 			MediaSettings mediaSettings,
 			SearchSettings searchSettings,
 			IGenericAttributeService genericAttributeService,
-			CatalogHelper catalogHelper)
+			CatalogHelper catalogHelper,
+			Lazy<IFacetTemplateProvider> templateProvider)
 		{
 			_queryFactory = queryFactory;
 			_catalogSearchService = catalogSearchService;
@@ -42,6 +46,7 @@ namespace SmartStore.Web.Controllers
 			_searchSettings = searchSettings;
 			_genericAttributeService = genericAttributeService;
 			_catalogHelper = catalogHelper;
+			_templateProvider = templateProvider;
 		}
 
 		[ChildActionOnly]
@@ -62,25 +67,12 @@ namespace SmartStore.Web.Controllers
 
 		[HttpPost]
 		public ActionResult InstantSearch(CatalogSearchQuery query)
-		{
+		{		
 			if (string.IsNullOrWhiteSpace(query.Term) || query.Term.Length < _searchSettings.InstantSearchTermMinLength)
 				return Content(string.Empty);
 
-			// Overwrite search fields
-			var searchFields = new List<string> { "name", "shortdescription", "tagname" };
-
-			if (_searchSettings.SearchFields.Contains("sku"))
-				searchFields.Add("sku");
-
-			if (_searchSettings.SearchFields.Contains("gtin"))
-				searchFields.Add("gtin");
-
-			if (_searchSettings.SearchFields.Contains("mpn"))
-				searchFields.Add("mpn");
-
-			query.Fields = searchFields.ToArray();
-
 			query
+				.BuildFacetMap(false)
 				.Slice(0, Math.Min(16, _searchSettings.InstantSearchNumberOfProducts))
 				.SortBy(ProductSortingEnum.Relevance);
 
@@ -182,6 +174,86 @@ namespace SmartStore.Web.Controllers
 
 			return View(model);
 		}
+
+		[ChildActionOnly]
+		public ActionResult Filters(ISearchResultModel model)
+		{
+			if (model == null)
+			{
+				return Content("");
+			}
+
+			#region Obsolete
+			//// TODO: (mc) really necessary?
+			//if (excludedFacets != null && excludedFacets.Length > 0)
+			//{
+			//	foreach (var exclude in excludedFacets.Where(x => x.HasValue()))
+			//	{
+			//		var facets = searchResultModel.SearchResult.Facets;
+			//		if (facets.ContainsKey(exclude))
+			//		{
+			//			facets.Remove(exclude);
+			//		}
+			//	} 
+			//}
+			#endregion
+
+			ViewBag.TemplateProvider = _templateProvider.Value;
+
+			return PartialView(model);
+		}
+
+		[ChildActionOnly]
+		public ActionResult ActiveFilters(ISearchResultModel model)
+		{
+			if (model == null)
+			{
+				return Content("");
+			}
+
+			return PartialView("Filters.Active", model);
+		}
+
+		[ChildActionOnly]
+		public ActionResult FacetGroup(FacetGroup facetGroup, string templateName)
+		{
+			// Just a "proxy" for our "StandardFacetTemplateSelector"
+			return PartialView(templateName, facetGroup);
+		}
+
+		// TODO: (mc) what about this stuff ?!
+		//private SearchPageFilterModel CreateSearchPageFilterModel(CatalogSearchResult searchResult)
+		//{
+		//	var model = new SearchPageFilterModel(searchResult);
+		//	FacetGroup group;
+
+		//	if (searchResult.Facets.TryGetValue("price", out group))
+		//	{
+		//		// format prices for price facet labels
+		//		// TODO: formatting without decimals would be nice
+		//		var priceLabelTemplate = T("Search.Facet.PriceMax").Text;
+
+		//		foreach (var facet in group.Facets.Where(x => x.Value.UpperValue != null))
+		//		{
+		//			var price = _priceFormatter.FormatPrice(Convert.ToDecimal((double)facet.Value.UpperValue), true, false);
+		//			facet.Value.Label = priceLabelTemplate.FormatInvariant(price);
+		//		}
+
+		//		// handle individual price filter
+		//		var individualPrice = group.Facets.FirstOrDefault(x => x.HitCount == 0);
+		//		if (individualPrice != null)
+		//		{
+		//			var value = individualPrice.Value;
+		//			if (value.IncludesLower && value != null)
+		//				model.IndividualPriceFrom = ((double)value.Value).ToString("F0", CultureInfo.InvariantCulture);
+
+		//			if (value.IncludesUpper && value.UpperValue != null)
+		//				model.IndividualPriceTo = ((double)value.UpperValue).ToString("F0", CultureInfo.InvariantCulture);
+		//		}
+		//	}
+
+		//	return model;
+		//}
 
 		private void AddSpellCheckerSuggestionsToModel(string[] suggestions, SearchResultModel model)
 		{

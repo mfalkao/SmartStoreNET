@@ -35,6 +35,7 @@
 	* #1064 Deleting all product categories/manufacturers per product in one go
 	* #1063 Adding product category/manufacturer ignores any other property like DisplayOrder
 	* Added endpoint "Infos" for order and order item entity for additional information like aggregated data.
+	* Swagger integration
 * Added setting to specify whether the product manufacturer should be displayed in product detail
 * #271 Implemented support for attribute images/icons
 * #330 Implement 'attribute option sets'
@@ -71,9 +72,10 @@
 ### Bugfixes
 * Currency wasn't displayed at shipping estimation
 * SKU, EAN, MPN of last attribute combination was exported for all combinations
-* GMC: Id should be unique when exporting attribute combinations as products
-* GMC: Attribute price adjustments were ignored when exporting attribute combinations as products
-* GMC: Associated products that are not individually visible are not exported anymore. GMC rejects them because the frontend redirects to the grouped product.
+* GMC:
+	* Id should be unique when exporting attribute combinations as products
+	* Attribute price adjustments were ignored when exporting attribute combinations as products
+	* Associated products that are not individually visible are not exported anymore. GMC rejects them because the frontend redirects to the grouped product.
 * #999 Export: Projected customer id ignored during price calculation
 * Awarded reward points for a placed order sometimes wrong calculated
 * PayPal PLUS: A changed shipping address/costs was not transmitted to PayPal
@@ -88,6 +90,9 @@
 * #1071 NewsLetterSubscription.ActivationUrl not working if the store if SSL secured
 * #1086 Gift cards can be earned in one store and applied in another
 * Whishlist: Products with minimum order amount greater then 1 can be added to the whishlist without any warning
+* #1102: Discounts not transmitted when the total amount is zero
+* #1104 Export: Language projection ignored when creating product details URL
+* #1101 Clickatell: Sending SMS not working anymore
 
 ## SmartStore.NET 2.6
 

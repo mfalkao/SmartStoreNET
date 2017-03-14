@@ -48,7 +48,9 @@ namespace SmartStore.Data.Migrations
 			});
 
 			// ...and set it as default where applicable
-			var newProductTemplate = context.Set<ProductTemplate>().FirstOrDefault(x => x.Name == "Default Product Template") ?? context.Set<ProductTemplate>().LastOrDefault();
+			var newProductTemplate = context.Set<ProductTemplate>().FirstOrDefault(x => x.Name == "Default Product Template") 
+				?? context.Set<ProductTemplate>().OrderByDescending(x => x.Id).FirstOrDefault();
+
 			if (newProductTemplate != null)
 			{
 				context.ExecuteSqlCommand("Update [Product] Set [ProductTemplateId] = {0}", true, null, newProductTemplate.Id);
@@ -440,14 +442,8 @@ namespace SmartStore.Data.Migrations
 			builder.AddOrUpdate("Admin.Catalog.Attributes.SpecificationAttributes.Fields.FacetSorting",
 				"Sorting of search filters",
 				"Sortierung der Suchfilter",
-				"Specifies the sorting of the search filters. This setting is only effective in accordance with the Mega-Search-Plus plugin. Changes will take effect after a renewal of the search index.",
-				"Legt die Sortierung der Suchfilter fest. Diese Einstellung ist nur in Zusammenhang mit dem Mega-Search-Plus Plugin wirksam. Änderungen werden erst nach einer Erneuerung des Suchindex wirksam.");
-
-			builder.AddOrUpdate("Search.Facet.Category", "Category", "Kategorie");
-			builder.AddOrUpdate("Search.Facet.Manufacturer", "Brand", "Marke");
-			builder.AddOrUpdate("Search.Facet.Price", "Price", "Preis");
-			builder.AddOrUpdate("Search.Facet.Rating", "Rating", "Bewertung");
-			builder.AddOrUpdate("Search.Facet.DeliveryTime", "Delivery Time", "Lieferzeit");
+				"Specifies the sorting of the search filters. This setting is only effective by using the Mega-Search-Plus plugin. Changes will take effect after a renewal of the search index.",
+				"Legt die Sortierung der Suchfilter fest. Diese Einstellung ist nur unter Verwendung mit des Mega-Search-Plus Plugins wirksam. Änderungen werden erst nach einer Erneuerung des Suchindex wirksam.");
 
 			builder.AddOrUpdate("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.ViewLink",
 				"Edit Options (Total: {0})",
@@ -458,7 +454,6 @@ namespace SmartStore.Data.Migrations
 			builder.AddOrUpdate("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values", "Options", "Optionen");
 			builder.AddOrUpdate("Admin.Catalog.Attributes.CheckoutAttributes.Values", "Options", "Optionen");
 
-			builder.AddOrUpdate("Search.Facet.PriceLabelTemplate", "up to {0}", "bis {0}");
 
 			builder.AddOrUpdate("Common.CopyToClipboard.Failed", "Failed to copy.", "Kopieren ist fehlgeschlagen.");
 
@@ -590,7 +585,7 @@ namespace SmartStore.Data.Migrations
 				"Enums.SmartStore.Core.Domain.Common.FulltextSearchMode.Or"
 			);
 
-			builder.AddOrUpdate("Common.Options.Count", "Number options", "Anzahl Optionen");
+			builder.AddOrUpdate("Common.Options.Count", "Number options", "Anzahl Optionen"); 
 			builder.AddOrUpdate("Common.Options.Add", "Add option", "Option hinzufügen");
 			builder.AddOrUpdate("Common.Options.Edit", "Edit option", "Option bearbeiten");
 
@@ -601,21 +596,30 @@ namespace SmartStore.Data.Migrations
 				"Es wurden {0} Option(en) kopiert.");
 
 			builder.AddOrUpdate("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.CopyOptions",
-				"Copy attribute options",
-				"Attributoptionen kopieren");
+				"Copy set options",
+				"Set Optionen übernehmen");
 
 			builder.AddOrUpdate("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.CopyOptionsHint",
-				"Would you like to copy the options stored for product attribute \"{0}\"? Existing attribute values are not changed.",
-				"Möchten Sie die für das Produktattribut \"{0}\" hinterlegten Optionen übernehmen? Vorhandene Attributwerte werden dabei nicht verändert.");
+				"Would you like to copy all options from set \"{0}\"?",
+				"Möchten Sie alle Optionen von Set \"{0}\" übernehmen?");
+
+			builder.AddOrUpdate("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.AskExistingValues",
+				"What should be done with already existing options?",
+				"Was soll mit den bereits vorhandenen Optionen geschehen?");
+
+			builder.AddOrUpdate("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.MergeExistingValues",
+				"Merge all options",
+				"Alle Optionen zusammenführen");
 
 			builder.AddOrUpdate("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.DeleteExistingValues",
-				"Delete existing attribute values",
-				"Vorhandene Attributwerte löschen");
+				"Delete existing options",
+				"Vorhandene Optionen löschen");
             
-            builder.AddOrUpdate("Offcanvas.Menu.Categories", "Categories", "Warengruppen");
+            builder.AddOrUpdate("Offcanvas.Menu.Categories", "Categories", "Sortiment");
             builder.AddOrUpdate("Offcanvas.Menu.Brands", "Brands", "Marken");
-            builder.AddOrUpdate("Offcanvas.Menu.Help", "Help", "Hilfe");
-
+            builder.AddOrUpdate("Offcanvas.Menu.Service", "Service", "Service");
+            builder.AddOrUpdate("Offcanvas.Menu.ShowCurrentCat", "Show {0}", "{0} anzeigen"); 
+            
 			var aliasHintEn = "Seo-compliant URL alias for search filters. If empty, the attribute's ID is used in page URLs.";
 			var aliasHintDe = "SEO-konformer URL-Alias für Suchfilter. Wenn leer, wird die Attribut-ID in Seiten-URLs verwendet.";
 			builder.AddOrUpdate("Admin.Catalog.Attributes.ProductAttributes.Fields.Alias.Hint", aliasHintEn, aliasHintDe);
@@ -623,9 +627,51 @@ namespace SmartStore.Data.Migrations
 			builder.AddOrUpdate("Admin.Catalog.Attributes.SpecificationAttributes.Options.Fields.Alias.Hint", aliasHintEn, aliasHintDe);
 			builder.AddOrUpdate("Admin.Catalog.Products.ProductVariantAttributes.Attributes.Values.Fields.Alias.Hint", aliasHintEn, aliasHintDe);
 
-			builder.AddOrUpdate("Admin.Catalog.Attributes.OptionsSets",
-				"Options sets",
-				"Optionen Sets");
+			builder.AddOrUpdate("Admin.Catalog.Attributes.OptionsSets", "Option sets", "Options-Sets");
+
+			builder.Delete(
+				"Products.Filter.Remove",
+				"Products.Filter.ShowAll",
+				"Products.Filter.SelectMultiple",
+				"Products.Filter.NoneFound",
+				"Products.Filter.Contains",
+				"Products.Filter.StartsWith",
+				"Products.Filter.EndsWith",
+				"Filtering.FilterResults",
+				"Admin.Configuration.Settings.Catalog.FilterEnabled",
+				"Admin.Configuration.Settings.Catalog.FilterEnabled.Hint",
+				"Admin.Configuration.Settings.Catalog.MaxFilterItemsToDisplay",
+				"Admin.Configuration.Settings.Catalog.MaxFilterItemsToDisplay.Hint",
+				"Admin.Configuration.Settings.Catalog.ExpandAllFilterCriteria",
+				"Admin.Configuration.Settings.Catalog.ExpandAllFilterCriteria.Hint",
+				"Admin.Configuration.Settings.Catalog.SortFilterResultsByMatches",
+				"Admin.Configuration.Settings.Catalog.SortFilterResultsByMatches.Hint"
+			);
+
+			builder.AddOrUpdate("Search.Facet.Category", "Category", "Kategorie");
+			builder.AddOrUpdate("Search.Facet.Manufacturer", "Brand", "Marke");
+			builder.AddOrUpdate("Search.Facet.Price", "Price", "Preis");
+			builder.AddOrUpdate("Search.Facet.Rating", "Rating", "Bewertung");
+			builder.AddOrUpdate("Search.Facet.DeliveryTime", "Delivery Time", "Lieferzeit");
+
+			builder.AddOrUpdate("Search.Facet.PriceMin", "from {0}", "ab {0}");
+			builder.AddOrUpdate("Search.Facet.PriceMax", "up to {0}", "bis {0}");
+			builder.AddOrUpdate("Search.Facet.PriceBetween", "{0} - {1}", "{0} - {1}");
+
+			builder.AddOrUpdate("Search.Facet.FindPlaceholder", "Find {0}...", "{0} suchen...");
+			builder.AddOrUpdate("Search.Facet.SelectedCount", "{0} selected", "{0} ausgewählt");
+			builder.AddOrUpdate("Search.Facet.RemoveAllFilters", "Remove all filters", "Alle Filter aufheben");
+			builder.AddOrUpdate("Search.Facet.RemoveFilter", "Remove filter: {0} &gt; {1}", "Filter aufheben: {0} &gt; {1}");
+			builder.AddOrUpdate("Search.Facet.RemoveGroupFilters", "Remove filters", "Filter aufheben");
+			builder.AddOrUpdate("Search.Facet.1StarAndMore", "1 star & more", "1 Stern & mehr");
+			builder.AddOrUpdate("Search.Facet.XStarsAndMore", "{0} stars & more", "{0} Sterne & mehr");
+			builder.AddOrUpdate("Search.Facet.StarsAndMore", "& more", "& mehr");
+
+			builder.AddOrUpdate("Admin.Configuration.Settings.GeneralCommon.ForceSslForAllPages",
+				"Always use SSL",
+				"Immer SSL verwenden",
+				"Specifies whether to SSL secure all request.",
+				"Legt fest, dass alle Anfragen SSL gesichert werden sollen.");
 		}
 	}
 }

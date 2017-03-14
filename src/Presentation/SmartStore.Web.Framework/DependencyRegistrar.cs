@@ -50,7 +50,6 @@ using SmartStore.Services.DataExchange.Import;
 using SmartStore.Services.Directory;
 using SmartStore.Services.Discounts;
 using SmartStore.Services.Events;
-using SmartStore.Services.Filter;
 using SmartStore.Services.Forums;
 using SmartStore.Services.Helpers;
 using SmartStore.Services.Localization;
@@ -65,7 +64,9 @@ using SmartStore.Services.Payments;
 using SmartStore.Services.Pdf;
 using SmartStore.Services.Polls;
 using SmartStore.Services.Search;
+using SmartStore.Services.Search.Extensions;
 using SmartStore.Services.Search.Modelling;
+using SmartStore.Services.Search.Rendering;
 using SmartStore.Services.Security;
 using SmartStore.Services.Seo;
 using SmartStore.Services.Shipping;
@@ -101,6 +102,7 @@ namespace SmartStore.Web.Framework
 			builder.RegisterModule(new CoreModule(typeFinder));
 			builder.RegisterModule(new DbModule(typeFinder));
 			builder.RegisterModule(new CachingModule());
+			builder.RegisterModule(new SearchModule());
 			builder.RegisterModule(new LocalizationModule());
 			builder.RegisterModule(new EventModule(typeFinder, pluginFinder));
 			builder.RegisterModule(new MessagingModule());
@@ -258,15 +260,7 @@ namespace SmartStore.Web.Framework
 			builder.RegisterType<ExternalAuthorizer>().As<IExternalAuthorizer>().InstancePerRequest();
 			builder.RegisterType<OpenAuthenticationService>().As<IOpenAuthenticationService>().InstancePerRequest();
 
-			builder.RegisterType<FilterService>().As<IFilterService>().InstancePerRequest();
 			builder.RegisterType<CommonServices>().As<ICommonServices>().InstancePerRequest();
-
-			// Search
-			builder.RegisterType<DefaultIndexManager>().As<IIndexManager>().InstancePerRequest();
-			builder.RegisterType<CatalogSearchService>().As<ICatalogSearchService>().InstancePerRequest();
-			builder.RegisterType<LinqCatalogSearchService>().Named<ICatalogSearchService>("linq").InstancePerRequest();
-			builder.RegisterType<CatalogSearchQueryFactory>().As<ICatalogSearchQueryFactory>().InstancePerRequest();
-			builder.RegisterType<CatalogSearchQueryAliasMapper>().As<ICatalogSearchQueryAliasMapper>().InstancePerRequest();
 		}
 
 		protected override void AttachToComponentRegistration(IComponentRegistry componentRegistry, IComponentRegistration registration)
@@ -277,14 +271,15 @@ namespace SmartStore.Web.Framework
 			if (servicesProperty == null)
 				return;
 
-			var fastProperty = new FastProperty(servicesProperty);
+			registration.Metadata.Add("Property.ICommonServices", new FastProperty(servicesProperty));
 
 			registration.Activated += (sender, e) =>
 			{
 				if (DataSettings.DatabaseIsInstalled())
 				{
+					var prop = e.Component.Metadata.Get("Property.ICommonServices") as FastProperty;
 					var services = e.Context.Resolve<ICommonServices>();
-					fastProperty.SetValue(e.Instance, services);
+					prop.SetValue(e.Instance, services);
 				}
 			};
 		}
@@ -437,14 +432,18 @@ namespace SmartStore.Web.Framework
 			if (querySettingsProperty == null)
 				return;
 
-			var fastProperty = new FastProperty(querySettingsProperty);
+			registration.Metadata.Add("Property.DbQuerySettings", new FastProperty(querySettingsProperty));
 
 			registration.Activated += (sender, e) =>
 			{
 				if (DataSettings.DatabaseIsInstalled())
 				{
-					var querySettings = e.Context.Resolve<DbQuerySettings>();
-					fastProperty.SetValue(e.Instance, querySettings);
+					var prop = e.Component.Metadata.Get("Property.DbQuerySettings") as FastProperty;
+					if (prop != null)
+					{
+						var querySettings = e.Context.Resolve<DbQuerySettings>();
+						prop.SetValue(e.Instance, querySettings);
+					}
 				}
 			};
 		}
@@ -476,14 +475,18 @@ namespace SmartStore.Web.Framework
 			if (userProperty == null)
 				return;
 
-			var fastProperty = new FastProperty(userProperty);
+			registration.Metadata.Add("Property.T", new FastProperty(userProperty));
 
 			registration.Activated += (sender, e) =>
 			{
 				if (DataSettings.DatabaseIsInstalled())
 				{
-					Localizer localizer = e.Context.Resolve<IText>().Get;
-					fastProperty.SetValue(e.Instance, localizer);
+					var prop = e.Component.Metadata.Get("Property.T") as FastProperty;
+					if (prop != null)
+					{
+						Localizer localizer = e.Context.Resolve<IText>().Get;
+						prop.SetValue(e.Instance, localizer);
+					}
 				}
 			};
 		}
@@ -513,6 +516,20 @@ namespace SmartStore.Web.Framework
 			// Register MemoryCacheManager twice, this time explicitly named.
 			// We may need this later in decorator classes as a kind of fallback.
 			builder.RegisterType<MemoryCacheManager>().Named<ICacheManager>("memory").SingleInstance();
+		}
+	}
+
+	public class SearchModule : Module
+	{
+		protected override void Load(ContainerBuilder builder)
+		{
+			builder.RegisterType<DefaultIndexManager>().As<IIndexManager>().InstancePerRequest();
+			builder.RegisterType<CatalogSearchService>().As<ICatalogSearchService>().InstancePerRequest();
+			builder.RegisterType<LinqCatalogSearchService>().Named<ICatalogSearchService>("linq").InstancePerRequest();
+			builder.RegisterType<CatalogSearchQueryFactory>().As<ICatalogSearchQueryFactory>().InstancePerRequest();
+			builder.RegisterType<CatalogSearchQueryAliasMapper>().As<ICatalogSearchQueryAliasMapper>().InstancePerRequest();
+			builder.RegisterType<FacetUrlHelper>().InstancePerRequest();
+			builder.RegisterType<FacetTemplateProvider>().As<IFacetTemplateProvider>().InstancePerRequest();
 		}
 	}
 

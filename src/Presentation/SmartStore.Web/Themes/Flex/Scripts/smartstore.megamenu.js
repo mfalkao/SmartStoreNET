@@ -65,10 +65,9 @@
                     }
                 }
 
-                if ($("html").hasClass("touchevents")) {
+                if (Modernizr.touchevents) {
 
                     // Handle opening events for touch devices
-
                     megamenuContainer.on('clickoutside', function (e) {
                         closeNow($(".nav-item.active .nav-link"));
                     });
@@ -135,7 +134,7 @@
                 // correct dropdown position
                 if (isSimple) {
 
-                    var event = $("html").hasClass("touchevents") ? "click" : "mouseenter";
+                    var event = Modernizr.touchevents ? "click" : "mouseenter";
 
                     navElems.on(event, function (e) {
                         var navItem = $(this);
@@ -169,15 +168,18 @@
                     var navSlider = $('.megamenu .nav-slider');
                     updateNavState();
 
-                    megamenuNext.click(function (e) {
-                        e.preventDefault();
-                        scrollToNextInvisibleNavItem(false);
-                    });
+                    if (!Modernizr.touchevents) {
 
-                    megamenuPrev.click(function (e) {
-                        e.preventDefault();
-                        scrollToNextInvisibleNavItem(true);
-                    });
+                        megamenuNext.click(function (e) {
+                            e.preventDefault();
+                            scrollToNextInvisibleNavItem(false);
+                        });
+
+                        megamenuPrev.click(function (e) {
+                            e.preventDefault();
+                            scrollToNextInvisibleNavItem(true);
+                        });
+                    }
 
                     function scrollToNextInvisibleNavItem(backwards) {
                         // determine the first completely visible nav item (either from left or right side, depending on 'backwards')
@@ -205,7 +207,7 @@
 
                         newMarginLeft = Math.min(0, newMarginLeft);
 
-                        nav.css('margin-left', newMarginLeft + 'px').one($.support.transitionEnd, function (e) {
+                        nav.css('margin-left', newMarginLeft + 'px').one(Prefixer.event.transitionEnd, function (e) {
                             // performs UI update after end of animation (.one(trans...))
                             updateNavState();
                         });
@@ -274,33 +276,14 @@
                         }
                     }
 
-                    //oh, oh, oh, oh, can't touch this ;-/
-                    var hammertime = new Hammer(megamenu[0]);
-                    hammertime.add(new Hammer.Pan({ direction: Hammer.DIRECTION_HORIZONTAL }));
-
-                    if (isSimple) {
-                        hammertime.on('panstart', function (ev) {
+                    // on touch
+                    if (Modernizr.touchevents) {
+                        megamenu.tapstart(function () {
                             closeNow($(".nav-item.active .nav-link"));
-
-                            /*
-                            var link = $(".nav-item.active .nav-link");
-
-                            $(link.data("target")).removeClass("open");
-
-                            if (link.hasClass("dropdown-toggle")) {
-                                link.closest("li").removeClass("active");
-                            }
-                            */
+                        }).tapend(function () {
+                            getCurrentNavigationElements();
                         });
                     }
-
-                    hammertime.on('panend', function (ev) {
-                        getCurrentNavigationElements();
-                        closeNow($(".nav-item.active .nav-link"));
-
-                        if (ev.direction == Hammer.DIRECTION_LEFT) {megamenu.addClass("megamenu-blend--prev");}
-                        if (ev.direction == Hammer.DIRECTION_RIGHT) {megamenu.addClass("megamenu-blend--next");}
-                    });
 
                     function onPageResized() {
                     	updateNavState();
@@ -334,6 +317,8 @@
 
                     function getCurrentNavigationElements() {
                         firstVisibleElem = null;
+                        isLastItemVisible = false;
+
                         var p = $(".nav-slider", megamenuContainer);
 
                         navElems.each(function (i, val) {
@@ -350,7 +335,7 @@
                             }
 
                             // if visible
-                            if (el.offset().left + el.width() > p.offset().left + p.width()) {
+                            if (parseInt(el.offset().left) + parseInt(el.width()) == parseInt(p.offset().left) + parseInt(p.width())) {
 
                                 lastVisibleElem = el;
 

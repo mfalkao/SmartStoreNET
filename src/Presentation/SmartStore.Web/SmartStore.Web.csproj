@@ -269,7 +269,6 @@
     <Compile Include="Controllers\CommonController.cs" />
     <Compile Include="Controllers\BlogController.cs" />
     <Compile Include="Controllers\ErrorController.cs" />
-    <Compile Include="Controllers\FilterController.cs" />
     <Compile Include="Controllers\ProductController.cs" />
     <Compile Include="Controllers\ReturnRequestController.cs" />
     <Compile Include="Controllers\ExternalAuthenticationController.cs" />
@@ -312,6 +311,7 @@
     <Compile Include="Infrastructure\Installation\InstallDataSeeder.cs" />
     <Compile Include="Infrastructure\Routes\1_StoreRoutes.cs" />
     <Compile Include="Infrastructure\Routes\MapLegacyRoutesAttribute.cs" />
+    <Compile Include="Infrastructure\DefaultFacetTemplateSelector.cs" />
     <Compile Include="Models\Blogs\BlogPostListModel.cs" />
     <Compile Include="Models\Blogs\BlogPagingFilteringModel.cs" />
     <Compile Include="Models\Blogs\BlogPostTagModel.cs" />
@@ -342,7 +342,6 @@
     <Compile Include="Models\Catalog\ProductAskQuestionModel.cs" />
     <Compile Include="Models\Catalog\ProductSummaryModel.cs" />
     <Compile Include="Models\Catalog\ManufacturerOverviewModel.cs" />
-    <Compile Include="Models\Catalog\AjaxCategoryModel.cs" />
     <Compile Include="Models\Catalog\SearchBoxModel.cs" />
     <Compile Include="Models\Catalog\ProductsByTagModel.cs" />
     <Compile Include="Models\Catalog\PopularProductTagsModel.cs" />
@@ -364,6 +363,7 @@
     <Compile Include="Models\Checkout\CheckoutCompletedModel.cs" />
     <Compile Include="Models\Checkout\UpdateSectionJsonModel.cs" />
     <Compile Include="Models\Common\EntityPickerModel.cs" />
+    <Compile Include="Models\Search\ISearchResultModel.cs" />
     <Compile Include="Models\Search\SearchResultModel.cs" />
     <Compile Include="Models\ShoppingCart\ButtonPaymentMethodModel.cs" />
     <Compile Include="Models\ShoppingCart\OffCanvasCartModel.cs" />
@@ -385,7 +385,6 @@
     <Compile Include="Models\Customer\CustomerReturnRequestsModel.cs" />
     <Compile Include="Models\Customer\ForumSubscriptionModel.cs" />
     <Compile Include="Models\Customer\ExternalAuthenticationMethodModel.cs" />
-    <Compile Include="Models\Filter\ProductFilterModel.cs" />
     <Compile Include="Models\Install\InstallModel.cs" />
     <Compile Include="Models\News\AddNewsCommentModel.cs" />
     <Compile Include="Models\News\HomePageNewsItemsModel.cs" />
@@ -419,7 +418,6 @@
     <Compile Include="Models\Common\HeaderLinksModel.cs" />
     <Compile Include="Models\Common\LanguageModel.cs" />
     <Compile Include="Models\Common\StoreThemeSelectorModel.cs" />
-    <Compile Include="Models\Catalog\CatalogPagingFilteringModel.Obsolete.cs" />
     <Compile Include="Models\Media\PictureModel.cs" />
     <Compile Include="Models\Order\ShipmentDetailsModel.cs" />
     <Compile Include="Models\Order\SubmitReturnRequestModel.cs" />
@@ -945,9 +943,9 @@
     <Content Include="Themes\Flex\Content\pnotify\js\pnotify.buttons.js" />
     <Content Include="Themes\Flex\Content\pnotify\js\pnotify.js" />
     <Content Include="Themes\Flex\Content\pnotify\js\pnotify.mobile.js" />
-    <Content Include="Themes\Flex\Scripts\jquery.hammer.js" />
     <Content Include="Themes\Flex\Scripts\public.offcanvas-menu.js" />
     <Content Include="Themes\Flex\Scripts\public.product.js" />
+    <Content Include="Themes\Flex\Scripts\smartstore.touchevents.js" />
     <Content Include="Themes\Flex\Scripts\smartstore.responsiveNav.js" />
     <Content Include="Scripts\smartstore.entityPicker.js" />
     <Content Include="Scripts\smartstore.instantsearch.js" />
@@ -957,7 +955,6 @@
     <Content Include="Scripts\smartstore.placeholder.js" />
     <Content Include="Scripts\public.voting.js" />
     <Content Include="Scripts\public.reviews.js" />
-    <Content Include="Scripts\public.product-filter.js" />
     <Content Include="Scripts\smartstore.shrinkmenu.js" />
     <Content Include="Scripts\smartstore.column-equalizer.js" />
     <Content Include="Scripts\public.product-list-scroller.js" />
@@ -1430,7 +1427,6 @@
     <Content Include="Themes\AlphaOld\preview.png" />
     <Content Include="Themes\Flex\Content\drift\Drift.min.js" />
     <Content Include="Themes\Flex\Content\drift\Drift.js" />
-    <Content Include="Themes\Flex\Scripts\hammer.js" />
     <Content Include="Themes\Flex\Scripts\jquery.addeasing.js" />
     <Content Include="Themes\Flex\Scripts\jquery.ba-outside-events.js" />
     <Content Include="Themes\Flex\Scripts\jquery.ba-outside-events.min.js" />
@@ -1443,8 +1439,6 @@
     <Content Include="Themes\Flex\Scripts\offcanvas.js" />
     <Content Include="Themes\Flex\Scripts\prettify.js" />
     <Content Include="Themes\Flex\Scripts\public.common.js" />
-    <Content Include="Themes\Flex\Scripts\public.product-detail.js" />
-    <Content Include="Themes\Flex\Scripts\public.product-filter.js" />
     <Content Include="Themes\Flex\Scripts\public.reviews.js" />
     <Content Include="Themes\Flex\Scripts\public.offcanvas-cart.js" />
     <Content Include="Themes\Flex\Scripts\public.voting.js" />
@@ -1456,7 +1450,7 @@
     <Content Include="Themes\Flex\Scripts\smartstore.eventbroker.js" />
     <Content Include="Themes\Flex\Scripts\smartstore.globalize.adapter.js" />
     <Content Include="Themes\Flex\Scripts\smartstore.hacks.js" />
-    <Content Include="Themes\Flex\Scripts\smartstore.instantsearch.js" />
+    <Content Include="Themes\Flex\Scripts\public.search.js" />
     <Content Include="Themes\Flex\Scripts\smartstore.jquery.utils.js" />
     <Content Include="Themes\Flex\Scripts\smartstore.megamenu.js" />
     <Content Include="Themes\Flex\Scripts\smartstore.keynav.js" />
@@ -1502,7 +1496,6 @@
     <Content Include="Themes\AlphaOld\Content\pages.less" />
     <Content Include="Themes\AlphaOld\Content\paginator.less" />
     <Content Include="Themes\AlphaOld\Content\product.less" />
-    <Content Include="Themes\AlphaOld\Content\productfilter.less" />
     <Content Include="Themes\AlphaOld\Content\profile.less" />
     <Content Include="Themes\AlphaOld\Content\rating.less" />
     <Content Include="Themes\AlphaOld\Content\shopbar.less" />
@@ -1628,7 +1621,6 @@
     <Content Include="Themes\Flex\Content\shared\_modal-flex.scss" />
     <Content Include="Themes\Flex\Content\shared\_throbber.scss" />
     <Content Include="Themes\Flex\Content\shared\_spinner.scss" />
-    <Content Include="Themes\Flex\Content\shared\_scrollbutton.scss" />
     <Content Include="Themes\Flex\Content\shared\_star-rating.scss" />
     <Content Include="Themes\Flex\Content\shared\_sortable-grip.scss" />
     <Content Include="Themes\Flex\Content\_shopbar.scss" />
@@ -1712,9 +1704,7 @@
     <Content Include="Views\Catalog\RecentlyViewedProducts.cshtml" />
     <Content Include="Views\Catalog\Partials\RecentlyViewedProductsBlock.cshtml" />
     <Content Include="Views\Search\Search.cshtml" />
-    <Content Include="Views\Search\SearchBox.cshtml" />
-    <Content Include="Views\Catalog\Partials\_FilterPriceBox.cshtml" />
-    <Content Include="Views\Catalog\Partials\_FilterSpecsBox.cshtml" />
+    <Content Include="Views\Search\Partials\SearchBox.cshtml" />
     <Content Include="Views\Checkout\BillingAddress.cshtml" />
     <Content Include="Views\Checkout\CheckoutProgress.cshtml" />
     <Content Include="Views\Checkout\Completed.cshtml" />
@@ -1763,8 +1753,6 @@
     <Content Include="Views\Customer\_CheckUsernameAvailability.cshtml" />
     <Content Include="Views\Customer\_ExternalAuthentication.AssociateMessage.cshtml" />
     <Content Include="Views\ExternalAuthentication\ExternalMethods.cshtml" />
-    <Content Include="Views\Filter\Products.cshtml" />
-    <Content Include="Views\Filter\ProductsMultiSelect.cshtml" />
     <Content Include="Views\Home\ContactUs.cshtml" />
     <Content Include="Views\Home\Index.cshtml" />
     <Content Include="Views\Home\Sitemap.cshtml" />
@@ -1842,9 +1830,9 @@
     <Content Include="Views\Catalog\Partials\OffCanvasCompare.cshtml" />
     <Content Include="Views\Common\Partials\Logo.cshtml" />
     <Content Include="Themes\Flex\Content\_search.scss" />
-    <Content Include="Views\Search\InstantSearch.cshtml" />
-    <Content Include="Views\Search\InstantSearch.HitGroup.cshtml" />
-    <Content Include="Views\Search\InstantSearch.TopProducts.cshtml" />
+    <Content Include="Views\Search\Partials\InstantSearch.cshtml" />
+    <Content Include="Views\Search\Partials\InstantSearch.HitGroup.cshtml" />
+    <Content Include="Views\Search\Partials\InstantSearch.TopProducts.cshtml" />
     <Content Include="Themes\Flex\Content\_artlist.scss" />
     <Content Include="Views\Shared\Partials\Product.List.Item.cshtml" />
     <Content Include="Views\Shared\Partials\Product.List.cshtml" />
@@ -1898,6 +1886,15 @@
     <Content Include="Views\Catalog\Partials\OffCanvasMenuCategories.cshtml" />
     <Content Include="Views\Catalog\Partials\OffCanvasMenu.cshtml" />
     <Content Include="Views\Product\Partials\Product.CustomerPrice.cshtml" />
+    <Content Include="Views\Search\Partials\Filters.cshtml" />
+    <Content Include="Views\Search\Partials\Filters.Active.cshtml" />
+    <Content Include="Views\Search\Partials\Filters.OLD.cshtml" />
+    <Content Include="Views\Search\FacetTemplates\MultiSelect.cshtml" />
+    <Content Include="Views\Search\FacetTemplates\SingleSelect.cshtml" />
+    <Content Include="Views\Search\FacetTemplates\Price.cshtml" />
+    <Content Include="Views\Search\FacetTemplates\Rating.cshtml" />
+    <Content Include="Views\Search\FacetTemplates\Category.cshtml" />
+    <Content Include="Views\Catalog\Partials\OffCanvasMenuManufacturers.cshtml" />
     <None Include="Web.EFMigrations.config">
       <DependentUpon>Web.config</DependentUpon>
     </None>

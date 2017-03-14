@@ -1,22 +1,31 @@
-﻿@model ManufacturerModel
-@{
-    Layout = "_ColumnsTwo";
-    Html.AddTitleParts(!String.IsNullOrEmpty(Model.MetaTitle) ? Model.MetaTitle : Model.Name);
-    Html.AddMetaDescriptionParts(Model.MetaDescription);
-    Html.AddMetaKeywordParts(Model.MetaKeywords);
-
-    var canonicalUrlsEnabled = EngineContext.Current.Resolve<SeoSettings>().CanonicalUrlsEnabled;
-    if (canonicalUrlsEnabled)
-    {
-        var manufacturerUrl = Url.RouteUrl("Manufacturer", new { SeName = Model.SeName }, this.Request.Url.Scheme);
-        Html.AddCanonicalUrlParts(manufacturerUrl);
-    }
-}
-
-@using SmartStore.Core.Domain.Seo;
+﻿@using SmartStore.Core.Domain.Seo;
 @using SmartStore.Core.Infrastructure;
 @using SmartStore.Web.Models.Catalog;
 @using SmartStore.Web.Framework.UI;
+
+@model ManufacturerModel
+@{
+	Layout = "_ColumnsTwo";
+	Html.AddTitleParts(!String.IsNullOrEmpty(Model.MetaTitle) ? Model.MetaTitle : Model.Name);
+	Html.AddMetaDescriptionParts(Model.MetaDescription);
+	Html.AddMetaKeywordParts(Model.MetaKeywords);
+
+	var canonicalUrlsEnabled = EngineContext.Current.Resolve<SeoSettings>().CanonicalUrlsEnabled;
+	if (canonicalUrlsEnabled)
+	{
+		var manufacturerUrl = Url.RouteUrl("Manufacturer", new { SeName = Model.SeName }, this.Request.Url.Scheme);
+		Html.AddCanonicalUrlParts(manufacturerUrl);
+	}
+
+	Layout = Model.SearchResult.Facets.Count > 0 ? "_ColumnsTwo" : "_ColumnsOne";
+}
+
+@if (Model.SearchResult.Facets.Count > 0)
+{
+	@section left {
+		@{ Html.RenderAction("Filters", "Search", new { model = Model }); }
+	}
+}
 
 <div class="page manufacturer-page">
     <div class="page-title">

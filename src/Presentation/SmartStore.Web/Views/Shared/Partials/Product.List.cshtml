@@ -93,6 +93,8 @@
 	</div>
 }
 
+@{ Html.RenderAction("ActiveFilters", "Search", new { area = "" }); }
+
 <div id="@id" class='@String.Join(" ", listCssClasses)'>
 	@foreach (var product in Model.Items)
 	{

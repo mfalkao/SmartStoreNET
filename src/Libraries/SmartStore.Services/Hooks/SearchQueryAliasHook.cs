@@ -96,7 +96,11 @@ namespace SmartStore.Services.Hooks
 			}
 		}
 
-		private bool HasAliasDuplicate<TEntity>(HookedEntity entry, BaseEntity baseEntity) where TEntity : BaseEntity
+		private bool HasAliasDuplicate<TEntity>(
+			HookedEntity entry,
+			BaseEntity baseEntity,
+			Func<IQueryable<TEntity>, TEntity, bool> hasDuplicate = null) 
+			where TEntity : BaseEntity
 		{
 			if (entry.InitialState == EntityState.Added || entry.InitialState == EntityState.Modified)
 			{
@@ -109,12 +113,142 @@ namespace SmartStore.Services.Hooks
 						var repository = _ctx.Resolve<IRepository<TEntity>>();
 						var allEntities = repository.TableUntracked as IQueryable<ISearchAlias>;
 
-						if (allEntities != null && allEntities.Any(x => x.Id != entity.Id && x.Alias == entity.Alias))
+						//if (allEntities != null && allEntities.Any(x => x.Id != entity.Id && x.Alias == entity.Alias))
+						if (allEntities != null)
 						{
+							var duplicateExists = hasDuplicate == null
+								? allEntities.Any(x => x.Id != entity.Id && x.Alias == entity.Alias)
+								: hasDuplicate(repository.TableUntracked, (TEntity)entity);
+
+							if (duplicateExists)
+							{
+								RevertChanges(entry, string.Concat(T("Common.Error.AliasAlreadyExists", entity.Alias), " ", T("Common.Error.ChooseDifferentValue")));
+								return true;
+							}
+						}
+					}
+				}
+			}
+
+			return false;
+		}
+
+		private bool HasAliasDuplicate<T1, T2>(HookedEntity entry, BaseEntity baseEntity) where T1 : BaseEntity where T2 : BaseEntity
+		{
+			if (entry.InitialState == EntityState.Added || entry.InitialState == EntityState.Modified)
+			{
+				var entity = baseEntity as ISearchAlias;
+				if (entity != null)
+				{
+					entity.Alias = SeoExtensions.GetSeName(entity.Alias);
+					if (entity.Alias.HasValue())
+					{
+						var entities1 = _ctx.Resolve<IRepository<T1>>().TableUntracked as IQueryable<ISearchAlias>;
+						var entities2 = _ctx.Resolve<IRepository<T2>>().TableUntracked as IQueryable<ISearchAlias>;
+
+						var duplicate1 = entities1.FirstOrDefault(x => x.Alias == entity.Alias);
+						var duplicate2 = entities2.FirstOrDefault(x => x.Alias == entity.Alias);
+
+						if (duplicate1 != null || duplicate2 != null)
+						{
+							var type = baseEntity.GetUnproxiedType();
+
+							if (duplicate1 != null && duplicate1.Id == entity.Id && type == typeof(T1))
+								return false;
+							if (duplicate2 != null && duplicate2.Id == entity.Id && type == typeof(T2))
+								return false;
+
 							RevertChanges(entry, string.Concat(T("Common.Error.AliasAlreadyExists", entity.Alias), " ", T("Common.Error.ChooseDifferentValue")));
 							return true;
 						}
 					}
+				}
+			}
+
+			return false;
+		}
+
+		private bool HasAliasDuplicate(LocalizedProperty property)
+		{
+			var existingProperties = _localizedPropertyRepository.Value.Table.Where(x =>
+				 x.Id != property.Id &&
+				 x.LocaleKey == "Alias" &&
+				 x.LocaleKeyGroup == property.LocaleKeyGroup &&
+				 x.LanguageId == property.LanguageId &&
+				 x.LocaleValue == property.LocaleValue).ToList();
+
+			if (existingProperties.Count == 0)
+			{
+				// Check cases where alias has to be globally unique.
+				string otherKeyGroup = null;
+
+				if (property.LocaleKeyGroup.IsCaseInsensitiveEqual("SpecificationAttribute"))
+					otherKeyGroup = "ProductAttribute";
+				else if (property.LocaleKeyGroup.IsCaseInsensitiveEqual("ProductAttribute"))
+					otherKeyGroup = "SpecificationAttribute";
+
+				if (otherKeyGroup.HasValue())
+				{
+					existingProperties = _localizedPropertyRepository.Value.Table.Where(x =>
+						x.LocaleKey == "Alias" &&
+						x.LocaleKeyGroup == otherKeyGroup &&
+						x.LanguageId == property.LanguageId &&
+						x.LocaleValue == property.LocaleValue).ToList();
+				}
+
+				if (existingProperties.Count == 0)
+					return false;
+			}
+
+			var toDelete = new List<LocalizedProperty>();
+
+			foreach (var prop in existingProperties)
+			{
+				// Check if the related entity exists. The user would not be able to solve an invalidated alias when the related entity does not exist anymore.
+				var relatedEntityExists = true;
+
+				if (prop.LocaleKeyGroup.IsCaseInsensitiveEqual("SpecificationAttribute"))
+				{
+					relatedEntityExists = _ctx.Resolve<IRepository<SpecificationAttribute>>().GetById(prop.EntityId) != null;
+				}
+				else if (prop.LocaleKeyGroup.IsCaseInsensitiveEqual("SpecificationAttributeOption"))
+				{
+					relatedEntityExists = _ctx.Resolve<IRepository<SpecificationAttributeOption>>().GetById(prop.EntityId) != null;
+				}
+				else if (prop.LocaleKeyGroup.IsCaseInsensitiveEqual("ProductAttribute"))
+				{
+					relatedEntityExists = _ctx.Resolve<IRepository<ProductAttribute>>().GetById(prop.EntityId) != null;
+				}
+				else if (prop.LocaleKeyGroup.IsCaseInsensitiveEqual("ProductAttributeOption"))
+				{
+					relatedEntityExists = _ctx.Resolve<IRepository<ProductAttributeOption>>().GetById(prop.EntityId) != null;
+				}
+				//else if (prop.LocaleKeyGroup.IsCaseInsensitiveEqual("ProductVariantAttributeValue"))
+				//{
+				//	relatedEntityExists = _ctx.Resolve<IRepository<ProductVariantAttributeValue>>().GetById(prop.EntityId) != null;
+				//}
+
+				if (relatedEntityExists)
+				{
+					// We cannot delete any localized property because we are going to throw duplicate alias exception in OnBeforeSaveCompleted.
+					return true;
+				}
+				else
+				{
+					// Delete accidentally dead localized properties.
+					toDelete.Add(prop);
+				}
+			}
+
+			if (toDelete.Any())
+			{
+				try
+				{
+					_localizedPropertyRepository.Value.DeleteRange(toDelete);
+				}
+				catch (Exception exception)
+				{
+					exception.Dump();
 				}
 			}
 
@@ -180,7 +314,7 @@ namespace SmartStore.Services.Hooks
 
 			if (type == typeof(SpecificationAttribute))
 			{
-				if (HasAliasDuplicate<SpecificationAttribute>(entry, baseEntity))
+				if (HasAliasDuplicate<ProductAttribute, SpecificationAttribute>(entry, baseEntity))
 					return;
 
 				if (IsPropertyModified(entry, "Alias"))
@@ -210,24 +344,24 @@ namespace SmartStore.Services.Hooks
 			}
 			else if (type == typeof(ProductAttribute))
 			{
-				if (HasAliasDuplicate<ProductAttribute>(entry, baseEntity))
+				if (HasAliasDuplicate<ProductAttribute, SpecificationAttribute>(entry, baseEntity))
 					return;
 
 				if (IsPropertyModified(entry, "Alias"))
 					_catalogSearchQueryAliasMapper.Value.ClearVariantCache();
 			}
-			//else if (type == typeof(ProductAttributeOption))
-			//{
-			//	var entity = (ProductAttributeOption)baseEntity;
+			else if (type == typeof(ProductAttributeOption))
+			{
+				var entity = (ProductAttributeOption)baseEntity;
 
-			//	if (HasEntityDuplicate<ProductAttributeOption>(entry, baseEntity, x => x.Name, 
-			//		x => x.ProductAttributeId == entity.ProductAttributeId && x.Name == entity.Name))
-			//		return;
+				if (HasEntityDuplicate<ProductAttributeOption>(entry, baseEntity, x => x.Name,
+					x => x.ProductAttributeOptionsSetId == entity.ProductAttributeOptionsSetId && x.Name == entity.Name))
+					return;
 
-			//	// ClearVariantCache() not necessary
-			//	if (HasAliasDuplicate<ProductAttributeOption>(entry, baseEntity))
-			//		return;
-			//}
+				// ClearVariantCache() not necessary
+				if (HasAliasDuplicate<ProductAttributeOption>(entry, baseEntity))
+					return;
+			}
 			else if (type == typeof(ProductVariantAttribute))
 			{
 				var entity = (ProductVariantAttribute)baseEntity;
@@ -244,7 +378,8 @@ namespace SmartStore.Services.Hooks
 					x => x.ProductVariantAttributeId == entity.ProductVariantAttributeId && x.Name == entity.Name))
 					return;
 
-				if (HasAliasDuplicate<ProductVariantAttributeValue>(entry, baseEntity))
+				if (HasAliasDuplicate<ProductVariantAttributeValue>(entry, baseEntity, 
+					(all, e) => all.Any(x => x.Id != e.Id && x.ProductVariantAttributeId == e.ProductVariantAttributeId && x.Alias == e.Alias)))
 					return;
 
 				if (IsPropertyModified(entry, "Alias"))
@@ -260,11 +395,11 @@ namespace SmartStore.Services.Hooks
 				if (!prop.LocaleKey.IsCaseInsensitiveEqual("Alias"))
 					return;
 
+				// validating ProductVariantAttributeValue goes too far here.
 				if (!keyGroup.IsCaseInsensitiveEqual("SpecificationAttribute") &&
 					!keyGroup.IsCaseInsensitiveEqual("SpecificationAttributeOption") &&
 					!keyGroup.IsCaseInsensitiveEqual("ProductAttribute") &&
-					!keyGroup.IsCaseInsensitiveEqual("ProductAttributeOption") &&
-					!keyGroup.IsCaseInsensitiveEqual("ProductVariantAttributeValue"))
+					!keyGroup.IsCaseInsensitiveEqual("ProductAttributeOption"))
 				{
 					return;
 				}
@@ -273,20 +408,10 @@ namespace SmartStore.Services.Hooks
 				if (entry.InitialState == EntityState.Added || entry.InitialState == EntityState.Modified)
 				{
 					prop.LocaleValue = SeoExtensions.GetSeName(prop.LocaleValue);
-					if (prop.LocaleValue.HasValue())
+					if (prop.LocaleValue.HasValue() && HasAliasDuplicate(prop))
 					{
-						var aliasExists = _localizedPropertyRepository.Value.TableUntracked.Any(x =>
-							x.Id != prop.Id &&
-							x.LocaleKey == "Alias" &&
-							x.LocaleKeyGroup == prop.LocaleKeyGroup &&
-							x.LanguageId == prop.LanguageId &&
-							x.LocaleValue == prop.LocaleValue);
-
-						if (aliasExists)
-						{
-							RevertChanges(entry, string.Concat(T("Common.Error.AliasAlreadyExists", prop.LocaleValue), " ", T("Common.Error.ChooseDifferentValue")));
-							return;
-						}
+						RevertChanges(entry, string.Concat(T("Common.Error.AliasAlreadyExists", prop.LocaleValue), " ", T("Common.Error.ChooseDifferentValue")));
+						return;
 					}
 				}
 

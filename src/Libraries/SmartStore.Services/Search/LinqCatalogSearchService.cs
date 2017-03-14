@@ -199,13 +199,13 @@ namespace SmartStore.Services.Search
 			return query;
 		}
 
-		protected virtual IQueryable<Product> GetProductQuery(CatalogSearchQuery searchQuery)
+		protected virtual IQueryable<Product> GetProductQuery(CatalogSearchQuery searchQuery, IQueryable<Product> baseQuery)
 		{
 			var ordered = false;
 			var utcNow = DateTime.UtcNow;
+			var query = baseQuery ?? _productRepository.Table;
 
-			var query = _productRepository.Table.Where(x => !x.Deleted);
-
+			query = query.Where(x => !x.Deleted);
 			query = ApplySearchTerm(query, searchQuery);
 
 			#region Filters
@@ -733,18 +733,19 @@ namespace SmartStore.Services.Search
 						facets.RemoveFacet(10.0, true);
 					}
 
-					// add facet for individual price filter
-					if (descriptor.Values.Any() && !facets.Any(x => x.Value.IsSelected))
-					{
-						var individualPrice = descriptor.Values.First();
+					// Add facet for custome price range
+					var hasActivePredefinedFacet = facets.Any(x => x.Value.IsSelected);
+					var priceDescriptorValue = descriptor.Values.FirstOrDefault();
 
-						// check if price facet already exists otherwise insert it
-						var priceExists = (!individualPrice.IncludesLower && individualPrice.IncludesUpper && facets.Any(x => x.Value.Equals(individualPrice)));
-						if (!priceExists)
-						{
-							facets.Insert(0, new Facet(new FacetValue(individualPrice)));
-						}
-					}
+					var customPriceFacetValue = new FacetValue(
+						priceDescriptorValue != null && !hasActivePredefinedFacet ? priceDescriptorValue.Value : null,
+						priceDescriptorValue != null && !hasActivePredefinedFacet ? priceDescriptorValue.UpperValue : null,
+						IndexTypeCode.Double,
+						true,
+						true);
+					customPriceFacetValue.IsSelected = customPriceFacetValue.Value != null || customPriceFacetValue.UpperValue != null;
+
+					facets.Insert(0, new Facet("custom", customPriceFacetValue));
 
 					#endregion
 				}
@@ -820,18 +821,21 @@ namespace SmartStore.Services.Search
 
 			if (searchQuery.Take > 0)
 			{
-				var query = GetProductQuery(searchQuery);
+				var query = GetProductQuery(searchQuery, null);
 
 				totalCount = query.Count();
 
-				query = query
-					.Skip(searchQuery.PageIndex * searchQuery.Take)
-					.Take(searchQuery.Take);
+				if (searchQuery.ResultFlags.HasFlag(SearchResultFlags.WithHits))
+				{
+					query = query
+						.Skip(searchQuery.PageIndex * searchQuery.Take)
+						.Take(searchQuery.Take);
 
-				var ids = query.Select(x => x.Id).ToArray();
-				hitsFactory = () => _productService.GetProductsByIds(ids, loadFlags);
+					var ids = query.Select(x => x.Id).ToArray();
+					hitsFactory = () => _productService.GetProductsByIds(ids, loadFlags);
+				}
 
-				if (totalCount > 0 && searchQuery.FacetDescriptors.Any())
+				if (searchQuery.ResultFlags.HasFlag(SearchResultFlags.WithFacets) && searchQuery.FacetDescriptors.Any())
 				{
 					facets = GetFacets(searchQuery);
 				}
@@ -848,6 +852,11 @@ namespace SmartStore.Services.Search
 			_eventPublisher.Publish(new CatalogSearchedEvent(searchQuery, result));
 
 			return result;
+		}
+
+		public IQueryable<Product> PrepareQuery(CatalogSearchQuery searchQuery, IQueryable<Product> baseQuery = null)
+		{
+			return GetProductQuery(searchQuery, baseQuery);
 		}
 	}
 }

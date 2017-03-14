@@ -268,8 +268,9 @@ namespace SmartStore.Web.Controllers
 				{
 					// associated products
 					var searchQuery = new CatalogSearchQuery()
-						.HasStoreId(_services.StoreContext.CurrentStore.Id)
+						.VisibleOnly(_services.WorkContext.CurrentCustomer)
 						.VisibleIndividuallyOnly(false)
+						.HasStoreId(_services.StoreContext.CurrentStore.Id)
 						.HasParentGroupedProductId(product.Id);
 
 					var associatedProducts = _catalogSearchService.Search(searchQuery).Hits;
@@ -1233,39 +1234,49 @@ namespace SmartStore.Web.Controllers
 		{
 			try
 			{
-				// Perf: only resolve counts for categories in the current path.
-				while (curNode != null)
+				using (_services.Chronometer.Step("ResolveCategoryProductsCount for {0}".FormatInvariant(curNode.Value.Text.EmptyNull())))
 				{
-					if (curNode.Children.Any(x => !x.Value.ElementsCount.HasValue))
+					// Perf: only resolve counts for categories in the current path.
+					while (curNode != null)
 					{
-						lock (s_lock)
+						if (curNode.Children.Any(x => !x.Value.ElementsCount.HasValue))
 						{
-							if (curNode.Children.Any(x => !x.Value.ElementsCount.HasValue))
+							lock (s_lock)
 							{
-								foreach (var node in curNode.Children)
+								if (curNode.Children.Any(x => !x.Value.ElementsCount.HasValue))
 								{
-									var categoryIds = new List<int>();
-
-									if (_catalogSettings.ShowCategoryProductNumberIncludingSubcategories)
+									foreach (var node in curNode.Children)
 									{
-										// include subcategories
-										node.Traverse(x => categoryIds.Add(x.Value.EntityId));
-									}
-									else
-									{
-										categoryIds.Add(node.Value.EntityId);
-									}
+										var categoryIds = new List<int>();
 
-									var ctx = new ProductSearchContext();
-									ctx.CategoryIds = categoryIds;
-									ctx.StoreId = _services.StoreContext.CurrentStoreIdIfMultiStoreMode;
-									node.Value.ElementsCount = _productService.CountProducts(ctx);
+										if (_catalogSettings.ShowCategoryProductNumberIncludingSubcategories)
+										{
+											// Include subcategories
+											node.Traverse(x =>
+											{
+												categoryIds.Add(x.Value.EntityId);
+											}, true);
+										}
+										else
+										{
+											categoryIds.Add(node.Value.EntityId);
+										}
+
+										var context = new CatalogSearchQuery()
+											.VisibleOnly()
+											.VisibleIndividuallyOnly(true)
+											.WithCategoryIds(null, categoryIds.ToArray())
+											.HasStoreId(_services.StoreContext.CurrentStoreIdIfMultiStoreMode)
+											.BuildHits(false);
+
+										node.Value.ElementsCount = _catalogSearchService.Search(context).TotalHitsCount;
+									}
 								}
 							}
 						}
-					}
 
-					curNode = curNode.Parent;
+						curNode = curNode.Parent;
+					}
 				}
 			}
 			catch (Exception ex)
@@ -1430,5 +1441,43 @@ namespace SmartStore.Web.Controllers
             return model;
         }
 
-	}
+        public ManufacturerNavigationModel PreprareManufacturerNavigationModel(int currentManufacturerId)
+        {
+            var cacheKey = string.Format(ModelCacheEventConsumer.MANUFACTURER_NAVIGATION_MODEL_KEY,
+                currentManufacturerId,
+                !_catalogSettings.HideManufacturerDefaultPictures,
+                _services.WorkContext.WorkingLanguage.Id,
+                _services.StoreContext.CurrentStore.Id);
+
+            var cacheModel = _services.Cache.Get(cacheKey, () =>
+            {
+                var currentManufacturer = _manufacturerService.GetManufacturerById(currentManufacturerId);
+                var manufacturers = _manufacturerService.GetAllManufacturers(null, 0, _catalogSettings.ManufacturersBlockItemsToDisplay + 1, _services.StoreContext.CurrentStore.Id);
+
+                var model = new ManufacturerNavigationModel
+                {
+                    DisplayManufacturers = _catalogSettings.ShowManufacturersOnHomepage,
+                    DisplayImages = _catalogSettings.ShowManufacturerPictures,
+                    DisplayAllManufacturersLink = manufacturers.Count > _catalogSettings.ManufacturersBlockItemsToDisplay
+                };
+
+                foreach (var manufacturer in manufacturers.Take(_catalogSettings.ManufacturersBlockItemsToDisplay))
+                {
+                    var modelMan = new ManufacturerBriefInfoModel
+                    {
+                        Id = manufacturer.Id,
+                        Name = manufacturer.GetLocalized(x => x.Name),
+                        SeName = manufacturer.GetSeName(),
+                        PictureUrl = _pictureService.GetPictureUrl(manufacturer.PictureId.GetValueOrDefault(), _mediaSettings.ManufacturerThumbPictureSize, !_catalogSettings.HideManufacturerDefaultPictures),
+                        IsActive = currentManufacturer != null && currentManufacturer.Id == manufacturer.Id,
+                    };
+                    model.Manufacturers.Add(modelMan);
+                }
+                
+                return model;
+            }, TimeSpan.FromHours(6));
+
+            return cacheModel;
+        }
+    }
 }

@@ -44,11 +44,15 @@ var AjaxMenu = (function ($, window, document, undefined) {
             if (item.find(".nav-link").is("#manufacturer-tab")) {
                 navigateToManufacturer();
             }
-            else if (item.find(".nav-link").is("#help-tab")) {
-                navigateToHelp();
+            else if (item.find(".nav-link").is("#service-tab")) {
+                navigateToService();
             }
-            else {
-                navigateToMenuItem(entityId ? entityId : 0, item.hasClass("back-to-parent-cat") ? "right" : "left");
+            else if (item.find(".nav-link").is("#category-tab")) {
+                navigateToHomeLayer();
+            }
+            else if (item.parents(".tab-pane").is("#ocm-categories") || item.parents('.category-container').length) {
+
+                navigateToMenuItem(entityId ? entityId : 0, item.hasClass("navigate-back") ? "left" : "right");
             }
 
             // for stopping event propagation
@@ -60,6 +64,48 @@ var AjaxMenu = (function ($, window, document, undefined) {
 
         // TODO: show throbber while elements are being loaded
 
+        var categoryContainer = menu.find(".category-container");
+        var firstCall = categoryContainer.length == 0;
+        var categoryTab = entityId != 0 ? menu : menu.find("#ocm-categories");
+
+        var currentLayer = $(".layer.in", menu);
+        var nextLayer = currentLayer.next();
+        var prevLayer = currentLayer.prev();
+
+        if (direction == "left") {
+            // check whether a previous layer exists (if it exists, its always the right one to navigate to)
+            if (prevLayer.length > 0) {
+                
+                // special treatment when navigating back to home layer
+                var isHome = prevLayer.hasClass("ocm-home-layer");
+
+                if (isHome) {
+                    prevLayer
+                        .find(".ocm-nav-layer")
+                        .removeClass("offcanvas-scrollable ocm-nav-layer layer");
+                }
+                
+                currentLayer.removeClass("in");
+                prevLayer.addClass("in");
+                return;
+            }
+
+            // if no previous layer exists, make ajax call and prepend response
+        }
+        else if (direction == "right") {
+            
+            // check whether a next layer exists and if it has the same id as the element to which the user is navigating to
+            if (nextLayer.data("id") == entityId) {
+                currentLayer.removeClass("in");
+                nextLayer.addClass("in");
+                return;
+            }
+            else {
+                // the layer to navigate to doesn't exist, so we remove all subsequent layers to build a new clean chain
+                currentLayer.nextAll().remove();
+            }
+        }
+
 	    $.ajax({
 	        cache: false,
 	        url: menu.data("url-item"),
@@ -68,59 +114,44 @@ var AjaxMenu = (function ($, window, document, undefined) {
 	        success: function (response) {
 
 	            // replace current menu content with response 
-	            var categoryContainer = $(".category-container");
-	            var firstCall = categoryContainer.length == 0;
-	            var categoryTab = entityId != 0 ? menu : $("#ocm-categories");
-
-                
 	            if (firstCall) {
-	                categoryTab.append(response);
-	            }
-	            else {
-                  
-	                var responseHtml = "";
-	                var categoryContainerSlideIn;
 
 	                if (entityId != 0)
-	                {
-                        
-	                    responseHtml += '<div class="ocm-nav-layer slide-in-from-' + direction + '">';
-	                    responseHtml += '   <div class="offcanvas-menu-subcat-header text-xs-right">';
-	                    responseHtml += '       <button class="btn btn-secondary btn-flat btn-to-danger btn-lg btn-icon offcanvas-closer fs-h2">&#215;</button>';
-	                    responseHtml += '   </div>';
-	                    responseHtml +=     response;
-	                    responseHtml += '</div>';
+	                    categoryTab.append(wrapAjaxResponse(response, " in", entityId));
+                    else 
+	                    categoryTab.append(response);
+	            }
+	            else {
 
-	                    categoryContainerSlideIn = $(responseHtml).appendTo(categoryTab);
-	                }
-	                else
-	                {
-	                    // TODO: get rid of this call
-	                    categoryContainer.remove();
-	                    navigateToHomeLayer();
-	                    return;
-	                }
-	                
-	                var categoryContainerSlideOut = $(".ocm-home-layer").length != 0 ? $(".ocm-home-layer") : $(".ocm-nav-layer:first");
-
-	                _.delay(function () {
-	                    categoryContainerSlideIn.addClass("in");
-	                    categoryContainerSlideOut
-                            .removeClass("in")
-                            .addClass("out to-" + direction);
-	                }, 100);
+	                var categoryContainerSlideIn;
 
 	                if (direction == "left") {
                         
+	                    if (entityId == 0) {
+	                        navigateToHomeLayer();
+	                        return;
+	                    }
+	                    
+	                    categoryContainerSlideIn = $(wrapAjaxResponse(response, "", entityId)).prependTo(categoryTab);
 	                }
 	                else {
-	                    
+	                    categoryContainerSlideIn = $(wrapAjaxResponse(response, "", entityId)).appendTo(categoryTab);
 	                }
+	                
+	                var categoryContainerSlideOut = currentLayer;
 
-	                // remove slid container after transition
+	                _.delay(function () {
+	                    categoryContainerSlideIn.addClass("in");
+	                    if (direction !== undefined)
+	                        categoryContainerSlideOut.removeClass("in");
+	                }, 100);
+
+	                // remove in class of slid container after transition
 	                categoryContainerSlideIn.one(Prefixer.event.transitionEnd, function (e) {
-	                    categoryContainerSlideOut.remove();
+	                    if (direction !== undefined)
+	                        categoryContainerSlideOut.removeClass("in");
 	                });
+                    
 	            }
 	        },
 	        error: function (jqXHR, textStatus, errorThrown) {
@@ -137,14 +168,11 @@ var AjaxMenu = (function ($, window, document, undefined) {
 	        url: menu.data("url-home"),
 	        type: 'POST',
 	        success: function (response) {
-	            var ocMenu = $("#menu-container");
-	            ocMenu.html(response);
 
-	            $('#offcanvas-menu #category-tab').tab('show');
+	            menu.prepend(response);
+	            menu.find("#category-tab").tab('show');
 
-	            // navigate to home
 	            navigateToMenuItem(0);
-
 	            AjaxMenu.initFooter();
 	        },
 	        error: function (jqXHR, textStatus, errorThrown) {
@@ -154,21 +182,25 @@ var AjaxMenu = (function ($, window, document, undefined) {
 	    });
 	}
 
-    // TODO: mit home layer zusammenlegen
     function navigateToManufacturer() {
+
+        var tabContent = menu.find("#manufacturer-tab");
+        var manuTab = $("#ocm-manufacturers");
+        var isInitialized = tabContent.data("initialized");
+
+        if (isInitialized) {
+            tabContent.tab('show');
+            return;
+        }
 
         $.ajax({
             cache: false,
             url: menu.data("url-manufacturer"),
             type: 'POST',
             success: function (response) {
-
-                var manuTab = $("#ocm-manufacturers");
                 manuTab.html(response);
-
-                $('#offcanvas-menu #manufacturer-tab').tab('show');
-
-                // TODO: set initialized var and don't do requests twice
+                tabContent.tab('show');
+                tabContent.data("initialized", true);
             },
             error: function (jqXHR, textStatus, errorThrown) {
                 console.log(errorThrown);
@@ -177,57 +209,48 @@ var AjaxMenu = (function ($, window, document, undefined) {
         });
     }
 
-    function navigateToHelp() {
+    function navigateToService() {
 
-        var menuContent = $(".menubar-section .menubar");
-        var tabContent = menu.find("#help-tab");
-        var helpTab = $("#ocm-help");
+        var menuContent = $(".menubar-section .menubar").clone();
+        var tabContent = menu.find("#service-tab");
+        var serviceTab = $("#ocm-service");
         var isInitialized = tabContent.data("initialized");
-        var response = '';
-
+        
         if (isInitialized) {
             tabContent.tab('show');
             return;
         }
-        
-        // TODO: do it for every .dropdown & .menubar-link (if .menubar-link isn't within .dropdown)
 
-        // dropdown service-links open
-        var tempHelp = $(".service-links", menuContent);
-        var menuTitle = tempHelp.find(".menubar-link > span").text();
+        // hide currency & language selectors 
+        menuContent.find(".currency-selector, .language-selector").addClass("hidden-xs-up");
 
-        // menu title
-        response += '<div class="category-info"><div class="category-name">' + menuTitle + '</div></div>';
+        // open dropdown elements initially
+        menuContent.find(".dropdown").addClass("open");
 
-        response += '<ul class="nav navbar-nav">';
-
-        // foreach .dropdown 
-        tempHelp.find(".dropdown-item").each(function (index) {
-            var navItem = $(this).clone();
-
-            navItem.removeClass("dropdown-item");
-            navItem.addClass("nav-link");
-
-            response += '<li class="sub-cat nav-item" data-ajax="false">' + navItem.outerHtml() + '</li>';
-        });
-
-        response += "</ul>";
-
-        helpTab.html(response);
+        serviceTab.html(menuContent);
         tabContent.data("initialized", true);
         tabContent.tab('show');
+
+        return;
+    }
+
+    function wrapAjaxResponse(response, addClasses, id) {
+        var responseHtml = "";
+
+        responseHtml += '<div class="ocm-nav-layer layer offcanvas-scrollable ' + addClasses + '" data-id="' + id + '">';
+        responseHtml += response;
+        responseHtml += '</div>';
+
+        return responseHtml;
     }
 
 	return {
 
 	    initMenu: function () {
 
-	        var offcanvasMenu = $('#offcanvas-menu');
-	        var menuContent = $(".menubar-section .menubar");
 	        var selectedMenuItemId = $(".megamenu .navbar-nav").data("selected-menu-item");
 
-	        if (selectedMenuItemId == 0)
-	        {
+	        if (selectedMenuItemId == 0) {
 	            navigateToHomeLayer();
 	        }
 	        else {
@@ -240,8 +263,6 @@ var AjaxMenu = (function ($, window, document, undefined) {
 
 	    initFooter: function () {
 
-	        // TODO: don't forget to adapt elems or even blend them out when there's just one or no elem
-
 	        var footer = $(".offcanvas-menu-footer");
 	        var languageSelector = $(".menubar-section .language-selector");
 	        var currencySelector = $(".menubar-section .currency-selector");
@@ -249,24 +270,41 @@ var AjaxMenu = (function ($, window, document, undefined) {
 	        var ocmCurrencySelector = $("#ocm-currency-selector", footer);
 	        var selectTitleLanguage = $(".menubar-link > span", languageSelector).text();
 	        var selectTitleCurrency = $(".menubar-link > span", currencySelector).text();
+	        var displayCurrencySelector = currencySelector.length > 0;
+	        var displayLanguageSelector = languageSelector.length > 0;
 	        var languageOptions = "";
 	        var currencyOptions = "";
 
-	        $(languageSelector).find(".dropdown-item").each(function () {
-	            var link = $(this);
-	            languageOptions += '<option value="' + link.attr("href") + '">' + link.text() + '</option>';
-	        });
+	        if (!displayCurrencySelector && !displayCurrencySelector)
+	            return;
+	        else
+	            footer.removeClass("hidden-xs-up");
+	        
+	        if (displayCurrencySelector) {
+	            ocmCurrencySelector.parent().removeClass("hidden-xs-up");
 
-	        $(currencySelector).find(".dropdown-item").each(function () {
-	            var link = $(this);
-	            currencyOptions += '<option value="' + link.attr("href") + '">' + link.text() + '</option>';
-	        });
+	            $(currencySelector).find(".dropdown-item").each(function () {
+	                var link = $(this);
+	                var selected = link.data("selected") ? ' selected="selected" ' : '';
+	                currencyOptions += '<option value="' + link.attr("href") + '"' + selected + '>' + link.text() + '</option>';
+	            });
 
-	        $("span", ocmLanguageSelector).text(selectTitleLanguage);
-	        $("span", ocmCurrencySelector).text(selectTitleCurrency);
+	            $("span", ocmCurrencySelector).text(selectTitleCurrency);
+	            $(".form-control", ocmCurrencySelector).append(currencyOptions);
+	        }
 
-	        $(".form-control", ocmLanguageSelector).append(languageOptions);
-	        $(".form-control", ocmCurrencySelector).append(currencyOptions);
+	        if (displayLanguageSelector) {
+	            ocmLanguageSelector.parent().removeClass("hidden-xs-up");
+
+	            $(languageSelector).find(".dropdown-item").each(function () {
+	                var link = $(this);
+	                var selected = link.data("selected") ? ' selected="selected" ' : '';
+	                languageOptions += '<option value="' + link.attr("href") + '"' + selected + '>' + link.text() + '</option>';
+	            });
+
+	            $("span", ocmLanguageSelector).text(selectTitleLanguage);
+	            $(".form-control", ocmLanguageSelector).append(languageOptions);
+	        }
 
             // on change navigate to value 
 	        $(footer).find(".form-control").on("change", function (e) {
